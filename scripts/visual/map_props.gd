@@ -5,13 +5,13 @@ extends RefCounted
 
 const SPINNER := preload("res://scripts/visual/spinner.gd")
 
-const ROCK_COLOR := Color(0.2, 0.19, 0.21)
-const ROCK_TOP_COLOR := Color(0.33, 0.29, 0.27)
-const CONCRETE_COLOR := Color(0.3, 0.3, 0.32)
-const CONCRETE_DARK := Color(0.16, 0.16, 0.18)
+const ROCK_COLOR := Color(0.36, 0.33, 0.32)
+const ROCK_TOP_COLOR := Color(0.5, 0.44, 0.39)
+const CONCRETE_COLOR := Color(0.44, 0.44, 0.46)
+const CONCRETE_DARK := Color(0.24, 0.24, 0.27)
 const RUST_COLOR := Color(0.45, 0.25, 0.14)
 const STEEL_COLOR := Color(0.38, 0.4, 0.43)
-const REMNANT_BODY := Color(0.62, 0.6, 0.56)
+const REMNANT_BODY := Color(0.78, 0.76, 0.72)
 const REMNANT_ACCENT := Color(0.25, 0.82, 0.88)
 const COLLECTIVE_BODY := Color(0.07, 0.075, 0.09)
 const COLLECTIVE_ACCENT := Color(1.0, 0.27, 0.22)
@@ -19,6 +19,7 @@ const ENERGY_COLOR := Color(0.55, 1.0, 0.45)
 const CORE_COLOR := Color(0.78, 0.45, 1.0)
 const SCRAP_MARK_COLOR := Color(1.0, 0.68, 0.25)
 const WINDOW_GLOW := Color(1.0, 0.55, 0.25)
+const DEBRIS_COLOR := Color(0.3, 0.29, 0.29)
 
 static var _materials: Dictionary = {}
 
@@ -246,6 +247,42 @@ static func collective_nexus() -> Node3D:
 	return root
 
 
+## Scattered small debris in a single draw call. Keeps clear of `avoid` points.
+static func debris_field(count: int, half_extents: Vector2, avoid: Array[Vector3], clearance: float, rng: RandomNumberGenerator) -> MultiMeshInstance3D:
+	var stone := CylinderMesh.new()
+	stone.top_radius = 0.18
+	stone.bottom_radius = 0.32
+	stone.height = 0.3
+	stone.radial_segments = 5
+	stone.rings = 1
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.mesh = _faceted(stone)
+	var transforms: Array[Transform3D] = []
+	var attempts := 0
+	while transforms.size() < count and attempts < count * 4:
+		attempts += 1
+		var pos := Vector3(rng.randf_range(-half_extents.x, half_extents.x), 0.08, rng.randf_range(-half_extents.y, half_extents.y))
+		var blocked := false
+		for point in avoid:
+			if Vector2(pos.x - point.x, pos.z - point.z).length() < clearance:
+				blocked = true
+				break
+		if blocked:
+			continue
+		var basis := Basis(Vector3.UP, rng.randf_range(0.0, TAU)).scaled(Vector3.ONE * rng.randf_range(0.6, 2.4))
+		transforms.append(Transform3D(basis, pos))
+	multimesh.instance_count = transforms.size()
+	for i in transforms.size():
+		multimesh.set_instance_transform(i, transforms[i])
+	var instance := MultiMeshInstance3D.new()
+	instance.name = "Debris"
+	instance.multimesh = multimesh
+	instance.material_override = _solid(DEBRIS_COLOR, 0.95)
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return instance
+
+
 ## Flat translucent ring marking a site on the ground.
 static func site_ring(radius: float, color: Color) -> MeshInstance3D:
 	var ring := TorusMesh.new()
@@ -268,11 +305,44 @@ static func site_ring(radius: float, color: Color) -> MeshInstance3D:
 
 static func _mesh(mesh: Mesh, material: Material, pos: Vector3, rot_degrees: Vector3 = Vector3.ZERO) -> MeshInstance3D:
 	var instance := MeshInstance3D.new()
-	instance.mesh = mesh
+	instance.mesh = _faceted(mesh) if mesh is CylinderMesh else mesh
 	instance.material_override = material
 	instance.position = pos
 	instance.rotation_degrees = rot_degrees
 	return instance
+
+
+## Rebuilds a primitive with per-face normals for a crisp low-poly look.
+static func _faceted(mesh: PrimitiveMesh) -> ArrayMesh:
+	var arrays := mesh.get_mesh_arrays()
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+	var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	var out_verts := PackedVector3Array()
+	var out_normals := PackedVector3Array()
+	for i in range(0, indices.size(), 3):
+		var ia := indices[i]
+		var ib := indices[i + 1]
+		var ic := indices[i + 2]
+		var a := verts[ia]
+		var b := verts[ib]
+		var c := verts[ic]
+		var reference := normals[ia] + normals[ib] + normals[ic]
+		var face := (b - a).cross(c - a)
+		if face.length_squared() < 0.000001:
+			face = reference
+		if face.dot(reference) < 0.0:
+			face = -face
+		face = face.normalized()
+		out_verts.append_array([a, b, c])
+		out_normals.append_array([face, face, face])
+	var out := []
+	out.resize(Mesh.ARRAY_MAX)
+	out[Mesh.ARRAY_VERTEX] = out_verts
+	out[Mesh.ARRAY_NORMAL] = out_normals
+	var result := ArrayMesh.new()
+	result.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out)
+	return result
 
 
 static func _solid(color: Color, roughness: float, metallic: float = 0.0) -> StandardMaterial3D:

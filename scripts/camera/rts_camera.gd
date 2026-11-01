@@ -7,7 +7,7 @@ extends Node3D
 @export var bounds: Rect2 = Rect2(-60.0, -60.0, 120.0, 120.0)
 @export var min_distance: float = 16.0
 @export var max_distance: float = 80.0
-@export var start_distance: float = 42.0
+@export var start_distance: float = 54.0
 ## Pitch lowers as the camera zooms in for a more dramatic close view.
 @export var near_pitch_degrees: float = 46.0
 @export var far_pitch_degrees: float = 62.0

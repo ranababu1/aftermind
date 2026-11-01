@@ -5,6 +5,9 @@ extends Node3D
 const GROUND_SHADER := preload("res://shaders/ground.gdshader")
 ## Ground extends past the playable area so the camera never sees its edge.
 const GROUND_MARGIN := 160.0
+const DEBRIS_COUNT := 420
+## Debris keeps this far from sites and structures so they stay readable.
+const DEBRIS_CLEARANCE := 7.0
 
 @export var definition: MapDefinition
 
@@ -33,6 +36,7 @@ func build() -> void:
 	_place(MapProps.ai_core(), definition.core_site)
 	_place(MapProps.remnant_nexus(), definition.player_start)
 	_place(MapProps.collective_nexus(), definition.enemy_start)
+	add_child(MapProps.debris_field(DEBRIS_COUNT, definition.half_extents(), _debris_exclusions(), DEBRIS_CLEARANCE, rng))
 
 
 func _build_ground() -> void:
@@ -52,3 +56,14 @@ func _build_ground() -> void:
 func _place(node: Node3D, pos: Vector3) -> void:
 	node.position = pos
 	add_child(node)
+
+
+func _debris_exclusions() -> Array[Vector3]:
+	var points: Array[Vector3] = [definition.player_start, definition.enemy_start, definition.core_site]
+	points.append_array(definition.scrap_sites)
+	points.append_array(definition.energy_sites)
+	for r in definition.rocks:
+		points.append(Vector3(r.x, 0, r.y))
+	for r in definition.ruins:
+		points.append(Vector3(r.x, 0, r.y))
+	return points
