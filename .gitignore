@@ -1,0 +1,30 @@
+# Godot
+.godot/
+.import/
+*.translation
+export_presets.cfg.bak
+/android/
+build/
+*.apk
+*.aab
+*.idsig
+
+# Signing / secrets
+*.keystore
+*.jks
+*.p12
+*.pem
+.env
+
+# IDE / OS
+.vscode/
+.vs/
+.idea/
+*.swp
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Temp
+*.tmp
+*.log
