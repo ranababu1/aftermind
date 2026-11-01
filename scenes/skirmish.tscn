@@ -1,0 +1,24 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/skirmish.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/world/battlefield.tscn" id="2"]
+[ext_resource type="Script" path="res://scripts/camera/rts_camera.gd" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="5"]
+
+[node name="Skirmish" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Battlefield" parent="." instance=ExtResource("2")]
+
+[node name="CameraRig" type="Node3D" parent="."]
+script = ExtResource("3")
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig"]
+current = true
+fov = 40.0
+far = 500.0
+
+[node name="HUD" parent="." instance=ExtResource("4")]
+
+[node name="PauseMenu" parent="." instance=ExtResource("5")]

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="MapDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/map_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+map_id = &"ashfall_basin"
+display_name = "Ashfall Basin"
+size = Vector2(120, 120)
+player_start = Vector3(-38, 0, 38)
+enemy_start = Vector3(38, 0, -38)
+scrap_sites = Array[Vector3]([Vector3(-22, 0, 47), Vector3(-47, 0, 22), Vector3(22, 0, -47), Vector3(47, 0, -22), Vector3(18, 0, 26), Vector3(-18, 0, -26)])
+energy_sites = Array[Vector3]([Vector3(-36, 0, -30), Vector3(36, 0, 30)])
+core_site = Vector3(0, 0, 0)
+rocks = Array[Vector4]([Vector4(10, -14, 4, 5), Vector4(-10, 14, 4, 5), Vector4(15, 9, 3.2, 4), Vector4(-15, -9, 3.2, 4), Vector4(-52, -52, 9, 11), Vector4(52, 52, 9, 11), Vector4(0, 44, 5, 7), Vector4(0, -44, 5, 7), Vector4(44, 4, 4.5, 6), Vector4(-44, -4, 4.5, 6)])
+ruins = Array[Vector4]([Vector4(-24, 30, 5, 9), Vector4(24, -30, 5, 9), Vector4(30, 10, 4, 6), Vector4(-30, -10, 4, 6), Vector4(-6, 30, 3, 4), Vector4(6, -30, 3, 4), Vector4(52, -6, 3.5, 5), Vector4(-52, 6, 3.5, 5)])
+decor_seed = 2189
