@@ -10,6 +10,7 @@ const SCENES := [
 ]
 const FRAMES_PER_SCENE := 30
 const EXPECTED_STARTING_UNITS := 8
+const SPAWN_FRAME_BUDGET := 240
 ## Frames allowed for a group to cross the map (60 fps -> 30 s).
 const MOVE_FRAME_BUDGET := 1800
 ## Slack beyond the formation radius for avoidance jostling at arrival.
@@ -86,13 +87,21 @@ func _expect(condition: bool, label: String) -> void:
 func _check_movement_and_selection() -> void:
 	var skirmish: Node = (load("res://scenes/skirmish.tscn") as PackedScene).instantiate()
 	root.add_child(skirmish)
-	for i in 10:
+	# Units spawn once the navigation map has synced, which takes a variable
+	# number of frames (region updates are asynchronous).
+	var units_root := skirmish.get_node("Units")
+	var waited := 0
+	while units_root.get_child_count() < EXPECTED_STARTING_UNITS and waited < SPAWN_FRAME_BUDGET:
 		await physics_frame
+		waited += 1
 	var map := skirmish.get_node("Battlefield/Map") as MapBuilder
 	var selection := skirmish.get_node("SelectionController") as SelectionController
 	var commands := skirmish.get_node("CommandController") as CommandController
-	var units := skirmish.get_node("Units").get_children()
+	var units := units_root.get_children()
 	_expect(units.size() == EXPECTED_STARTING_UNITS, "spawns %d starting units (got %d)" % [EXPECTED_STARTING_UNITS, units.size()])
+	if units.size() != EXPECTED_STARTING_UNITS:
+		skirmish.queue_free()
+		return
 	for unit in units:
 		_expect(commands.snap_to_navigation(unit.global_position) != null, "%s spawns on walkable ground" % unit.name)
 

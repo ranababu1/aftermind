@@ -7,7 +7,7 @@ const START_FOCUS_OFFSET := Vector3(4.0, 0.0, -6.0)
 ## Starting units gather this far from the Nexus, toward the map center.
 const SPAWN_DISTANCE := 11.0
 const SPAWN_SPACING := 2.2
-const NAV_SYNC_MAX_FRAMES := 120
+const NAV_SYNC_MAX_FRAMES := 600
 
 @export var starting_units: Array[UnitDefinition] = []
 
