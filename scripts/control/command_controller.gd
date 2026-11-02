@@ -77,6 +77,23 @@ func issue_gather(units: Array[Unit], node: ResourceNode) -> bool:
 	return not gatherers.is_empty()
 
 
+## Sends workers in `units` to construct or repair `structure`. Returns false
+## when no worker can help (nothing to build, or no workers selected).
+func issue_build(units: Array[Unit], structure: Structure) -> bool:
+	if structure == null or not is_instance_valid(structure):
+		return false
+	if structure.is_complete() and not structure.is_damaged():
+		return false
+	var assigned := false
+	for unit in units:
+		if is_instance_valid(unit) and unit.definition.can_gather:
+			unit.assign_job(BuildJob.new(structure))
+			assigned = true
+	if assigned:
+		add_child(CommandMarkers.build_marker(structure.global_position, structure.definition.footprint_radius))
+	return assigned
+
+
 ## A spot beside `site` on the side the group comes from, so escorts do not
 ## crowd the workers' harvesting ring.
 func _staging_point(units: Array[Unit], site: Vector3) -> Vector3:

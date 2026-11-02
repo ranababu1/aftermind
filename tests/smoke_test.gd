@@ -34,6 +34,7 @@ func _run() -> void:
 	await _check_movement_and_selection()
 	await _check_gathering()
 	await _check_construction()
+	await _check_worker_construction()
 	if _failures.is_empty():
 		print("SMOKE TEST PASSED")
 		quit(0)
@@ -330,3 +331,77 @@ func _check_construction() -> void:
 
 func _flat(a: Vector3, b: Vector3) -> float:
 	return Vector2(a.x - b.x, a.z - b.z).length()
+
+
+func _check_worker_construction() -> void:
+	var skirmish: Node = await _spawn_skirmish()
+	var economy := skirmish.get_node("PlayerEconomy") as Economy
+	var service := skirmish.get_node("ConstructionService") as ConstructionService
+	var commands := skirmish.get_node("CommandController") as CommandController
+	var placement := skirmish.get_node("PlacementController") as PlacementController
+	var rig := skirmish.get_node("CameraRig") as RtsCamera
+	var map := skirmish.get_node("Battlefield/Map") as MapBuilder
+	var reactor := load("res://data/buildings/power_reactor.tres") as BuildingDefinition
+	var workers: Array[Unit] = []
+	for node in skirmish.get_node("Units").get_children():
+		if (node as Unit).definition.can_gather:
+			workers.append(node)
+	economy.add(Economy.SCRAP, 2000)
+
+	# Placement mode: refuses a rock (and stays open), places on open ground.
+	var rock: Vector4 = map.definition.rocks[0]
+	placement.begin(reactor)
+	rig.focus_on(Vector3(rock.x, 0, rock.y))
+	for i in 3:
+		await process_frame
+	_expect(placement.confirm() == null and placement.is_active(), "placement on a rock is refused and stays in placement mode")
+	var spot: Variant = _find_open_spot(service, reactor, map.definition.player_start)
+	rig.focus_on(spot)
+	for i in 3:
+		await process_frame
+	var scrap_before := economy.amount(Economy.SCRAP)
+	var site := placement.confirm()
+	_expect(site != null and not placement.is_active(), "placement mode places on open ground and exits")
+	_expect(economy.amount(Economy.SCRAP) == scrap_before - reactor.cost_scrap, "placing from placement mode charges the cost")
+	placement.begin(reactor)
+	placement.cancel()
+	_expect(not placement.is_active(), "cancel leaves placement mode")
+	if site == null:
+		skirmish.queue_free()
+		return
+
+	# Workers walk over and raise it.
+	_expect(commands.issue_build(workers, site), "build order accepted")
+	var frames := 0
+	while not site.is_complete() and frames < GATHER_FRAME_BUDGET:
+		await physics_frame
+		frames += 1
+	_expect(site.is_complete(), "workers finish construction (%d frames)" % frames)
+	await physics_frame
+	_expect(workers.all(func(w: Unit) -> bool: return w.job == null), "workers stop when construction is done")
+	_expect(not commands.issue_build(workers, site), "a healthy finished building needs no work")
+
+	# Repair restores health and costs scrap.
+	site.take_damage(reactor.max_health * 0.5)
+	scrap_before = economy.amount(Economy.SCRAP)
+	_expect(commands.issue_build(workers, site), "repair order accepted for a damaged building")
+	frames = 0
+	while site.is_damaged() and frames < GATHER_FRAME_BUDGET:
+		await physics_frame
+		frames += 1
+	_expect(not site.is_damaged(), "workers repair to full health")
+	var spent := scrap_before - economy.amount(Economy.SCRAP)
+	_expect(spent > 0 and spent <= int(reactor.cost_scrap * BuildJob.REPAIR_COST_FACTOR * 0.5) + 2, "repair costs a fair amount of scrap (%d)" % spent)
+
+	# Repair stops cleanly when scrap runs out.
+	site.take_damage(reactor.max_health * 0.5)
+	economy.try_spend({Economy.SCRAP: economy.amount(Economy.SCRAP)})
+	commands.issue_build(workers, site)
+	frames = 0
+	while workers.any(func(w: Unit) -> bool: return w.job != null) and frames < GATHER_FRAME_BUDGET:
+		await physics_frame
+		frames += 1
+	_expect(workers.all(func(w: Unit) -> bool: return w.job == null), "repair stops when scrap runs out")
+	_expect(economy.amount(Economy.SCRAP) >= 0, "scrap never goes negative during repair")
+	skirmish.queue_free()
+	await process_frame

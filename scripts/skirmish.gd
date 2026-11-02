@@ -13,12 +13,14 @@ const DEPOSIT_PICK_RADIUS_PX := 96.0
 const NEXUS_DROP_OFF_RADIUS := 6.4
 
 @export var starting_units: Array[UnitDefinition] = []
+@export var buildable: Array[BuildingDefinition] = []
 
 @onready var _map: MapBuilder = $Battlefield/Map
 @onready var _camera: RtsCamera = $CameraRig
 @onready var _economy: Economy = $PlayerEconomy
 @onready var _units: Node3D = $Units
 @onready var _construction: ConstructionService = $ConstructionService
+@onready var _placement: PlacementController = $PlacementController
 @onready var _selection: SelectionController = $SelectionController
 @onready var _commands: CommandController = $CommandController
 @onready var _hud: Hud = $HUD
@@ -33,6 +35,13 @@ func _ready() -> void:
 	_selection.setup(_camera.get_camera())
 	_commands.setup(_map)
 	_construction.setup(_map, $Structures)
+	_placement.setup(_camera, _construction, _economy)
+	_hud.set_buildable(buildable)
+	_hud.building_chosen.connect(_on_building_chosen)
+	_hud.placement_confirmed.connect(_on_placement_confirmed)
+	_hud.placement_cancelled.connect(_placement.cancel)
+	_placement.state_changed.connect(_hud.show_placement_state)
+	_placement.finished.connect(_hud.end_placement)
 	_hud.set_map_name(definition.display_name)
 	_hud.bind_economy(_economy)
 	_hud.pause_requested.connect(_pause_menu.open)
@@ -86,7 +95,22 @@ func _add_player_drop_off(at: Vector3) -> void:
 	add_child(drop)
 
 
+func _on_building_chosen(definition: BuildingDefinition) -> void:
+	_hud.begin_placement(definition)
+	_placement.begin(definition)
+
+
+func _on_placement_confirmed() -> void:
+	var builders := _selection.selected_units()
+	var site := _placement.confirm()
+	if site != null:
+		_commands.issue_build(builders, site)
+
+
 func _on_world_tapped(screen_position: Vector2) -> void:
+	if _placement.is_active():
+		_placement.jump_to(screen_position)
+		return
 	var unit := _selection.pick_unit(screen_position)
 	if unit != null:
 		_selection.select_only(unit)
@@ -96,6 +120,12 @@ func _on_world_tapped(screen_position: Vector2) -> void:
 	var deposit := _selection.pick_in_group(ResourceNode.GROUP, screen_position, 0.5, DEPOSIT_PICK_RADIUS_PX) as ResourceNode
 	if deposit != null:
 		_commands.issue_gather(_selection.selected_units(), deposit)
+		return
+	var structure_hit := _camera.raycast(screen_position, 1 << (Structure.PICK_LAYER - 1))
+	if not structure_hit.is_empty():
+		var structure := Structure.from_collider(structure_hit.collider)
+		if not _commands.issue_build(_selection.selected_units(), structure):
+			_commands.reject(structure_hit.position)
 		return
 	# A tap on a rock or structure must not resolve to the ground behind it.
 	var hit := _camera.raycast(screen_position, 1 << (MapBuilder.OBSTACLE_LAYER - 1))

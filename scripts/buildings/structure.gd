@@ -13,6 +13,9 @@ const GROUP := &"structures"
 const START_HEALTH_FRACTION := 0.1
 const MIN_RISE := 0.12
 const LABEL_HEIGHT := 6.5
+## Physics layer used only to detect taps on structures.
+const PICK_LAYER := 3
+const PICK_HEIGHT := 5.0
 
 @export var definition: BuildingDefinition
 @export var faction: StringName = &"remnants"
@@ -43,6 +46,7 @@ func _ready() -> void:
 	_label.modulate = BuildingVisuals.SCAFFOLD
 	_label.position = Vector3(0, LABEL_HEIGHT, 0)
 	add_child(_label)
+	_add_pick_body()
 	if health <= 0.0:
 		health = definition.max_health * START_HEALTH_FRACTION
 	_refresh_visuals()
@@ -98,6 +102,27 @@ func _process(delta: float) -> void:
 		var whole := int(_energy_carry)
 		_energy_carry -= whole
 		economy.add(Economy.ENERGY, whole)
+
+
+func _add_pick_body() -> void:
+	var shape := CylinderShape3D.new()
+	shape.radius = definition.footprint_radius
+	shape.height = PICK_HEIGHT
+	var collider := CollisionShape3D.new()
+	collider.shape = shape
+	collider.position = Vector3(0, PICK_HEIGHT * 0.5, 0)
+	var body := StaticBody3D.new()
+	body.name = "PickBody"
+	body.collision_layer = 1 << (PICK_LAYER - 1)
+	body.collision_mask = 0
+	body.add_child(collider)
+	add_child(body)
+
+
+## The structure owning a raycast hit collider, if any.
+static func from_collider(collider: Object) -> Structure:
+	var node := collider as Node
+	return node.get_parent() as Structure if node != null else null
 
 
 func _complete() -> void:

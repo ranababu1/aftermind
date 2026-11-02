@@ -16,6 +16,10 @@ static func gather_marker(pos: Vector3) -> Node3D:
 	return _pulse(pos, GATHER_COLOR, 3.0)
 
 
+static func build_marker(pos: Vector3, radius: float) -> Node3D:
+	return _pulse(pos, MOVE_COLOR, radius)
+
+
 static func _pulse(pos: Vector3, color: Color, radius: float) -> Node3D:
 	var root := Node3D.new()
 	root.position = pos

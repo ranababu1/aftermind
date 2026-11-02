@@ -131,3 +131,31 @@
 - Visual capture checked.
 
 **Known limitations:** No build menu or worker construction yet (next).
+
+## v0.2.4 — 2026-11-03 — Build menu, placement and worker construction
+**Summary:** You can now build your base. Select one or more Workers and tap **Build**: a menu lists the Power Reactor, Salvage Depot, Fabrication Bay and Research Lab with their costs and roles. Pick one and a ghost of it appears in the middle of the screen. Pan the map, or tap a spot, to position it; it turns green where it fits and red where it doesn't, with the reason shown. Tap **Build Here**: the cost is paid, the selected Workers walk over and raise it, and "Power Reactor ready" pops up when it's done. A finished Reactor starts adding Energy straight away. Tap an unfinished or damaged building with Workers selected to send them to build or repair it; repair costs a little Scrap as it goes.
+
+**Added:**
+- `PlacementController`: center-of-screen ghost placement (pan, or tap to jump), snapped to a half-metre grid, re-checked as it moves, tinted green or red. Build Here is disabled while the spot is invalid.
+- `BuildPanel`: large touch-friendly cards with name, cost (red "Need …" when unaffordable) and a one-line role.
+- HUD: a Build button (shown when Workers are selected) and a placement bar (Cancel · status · Build Here).
+- `BuildJob`: Workers fan out around the site and construct it (more Workers build faster). They repair damaged buildings for Scrap (half the building's Scrap cost for a full repair), and stop with "Need scrap" when it runs out.
+- Structures have a tap target, so tapping a building sends Workers to build or repair it. Units that can't help get the red cross instead.
+
+**Tests/checks:**
+- New scenarios pass:
+  - placement mode refuses a rock and stays open, then places on open ground and charges the cost;
+  - cancel exits placement;
+  - Workers finish construction and stop;
+  - a healthy building needs no work;
+  - repair restores full health for a fair Scrap cost;
+  - repair stops cleanly when Scrap runs out, never going negative.
+- Release build on the Pixel 10 Pro AVD:
+  - select a Worker, Build, Power Reactor;
+  - red "Ground is blocked" over the Nexus; red "Too close to the edge" at the west boundary;
+  - green on open ground; Build Here;
+  - Scrap 300 → 150, the Worker builds it (34%… then complete), and Energy rises 100 → 126.
+
+**Known limitations:**
+- Buildings can't be selected for info yet.
+- There is no way to cancel a construction site.
