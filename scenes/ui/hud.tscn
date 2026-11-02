@@ -73,4 +73,55 @@ theme_type_variation = &"ChipPanel"
 [node name="HintLabel" type="Label" parent="Margin/Layout/Hint"]
 layout_mode = 2
 theme_type_variation = &"MutedLabel"
-text = "Drag to pan  ·  Pinch to zoom"
+text = "Tap a unit to select  ·  Hold to add  ·  Tap ground to move  ·  Drag to pan  ·  Pinch to zoom"
+
+[node name="Gap" type="Control" parent="Margin/Layout"]
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="BottomBar" type="HBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="SelectionChip" type="PanelContainer" parent="Margin/Layout/BottomBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_type_variation = &"ChipPanel"
+
+[node name="Rows" type="VBoxContainer" parent="Margin/Layout/BottomBar/SelectionChip"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="SelectionCount" type="Label" parent="Margin/Layout/BottomBar/SelectionChip/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"AccentLabel"
+theme_override_font_sizes/font_size = 20
+text = "0 SELECTED"
+
+[node name="SelectionDetail" type="Label" parent="Margin/Layout/BottomBar/SelectionChip/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = ""
+
+[node name="ClearButton" type="Button" parent="Margin/Layout/BottomBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 104)
+layout_mode = 2
+text = "Clear"
+
+[node name="Spacer" type="Control" parent="Margin/Layout/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="AllButton" type="Button" parent="Margin/Layout/BottomBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 104)
+layout_mode = 2
+text = "All Units"

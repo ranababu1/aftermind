@@ -5,11 +5,25 @@
 [ext_resource type="Script" path="res://scripts/camera/rts_camera.gd" id="3"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="5"]
+[ext_resource type="Script" path="res://scripts/control/selection_controller.gd" id="6"]
+[ext_resource type="Script" path="res://scripts/control/command_controller.gd" id="7"]
+[ext_resource type="Resource" path="res://data/units/worker.tres" id="8"]
+[ext_resource type="Resource" path="res://data/units/rifle.tres" id="9"]
+[ext_resource type="Script" path="res://scripts/units/unit_definition.gd" id="10"]
 
 [node name="Skirmish" type="Node3D"]
 script = ExtResource("1")
+starting_units = Array[ExtResource("10")]([ExtResource("8"), ExtResource("8"), ExtResource("8"), ExtResource("9"), ExtResource("9"), ExtResource("9"), ExtResource("9"), ExtResource("9")])
 
 [node name="Battlefield" parent="." instance=ExtResource("2")]
+
+[node name="Units" type="Node3D" parent="."]
+
+[node name="SelectionController" type="Node" parent="."]
+script = ExtResource("6")
+
+[node name="CommandController" type="Node3D" parent="."]
+script = ExtResource("7")
 
 [node name="CameraRig" type="Node3D" parent="."]
 script = ExtResource("3")

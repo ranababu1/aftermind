@@ -39,7 +39,7 @@ trap 'mv -f export_presets.cfg.bak export_presets.cfg' EXIT
 sed -i -E "s/^version\/code=.*/version\/code=$CODE/; s/^version\/name=.*/version\/name=\"$VERSION\"/" export_presets.cfg
 
 "$GODOT" --headless --path . --import
-"$GODOT" --headless --path . --script res://tests/smoke_test.gd
+"$GODOT" --headless --fixed-fps 60 --path . --script res://tests/smoke_test.gd
 
 rm -rf release-assets
 mkdir -p release-assets

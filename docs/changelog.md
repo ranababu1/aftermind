@@ -39,3 +39,31 @@
 - Not yet installed on a physical device; the release-signed build was not run on the emulator (no emulator was available).
 
 **Known limitations:** Same as the M0 entry. If an earlier debug build is installed, uninstall it first (different package and signature).
+
+## v0.2.0 — 2026-11-03 — Units, selection and movement (M1)
+**Summary:** The first playable units. You start with 3 Workers and 5 Rifle units near your Command Nexus. Tap a unit to select it, hold on a unit to add it to (or remove it from) the selection, tap **All Units** to select everything, and tap the ground to move. Units path around rocks, ruins and structures, spread into a loose group at the destination, and avoid bumping into each other.
+
+**Added:**
+- Unit data resources (`data/units/worker.tres`, `rifle.tres`) and `Unit` (`scripts/units/unit.gd`): navigation-agent movement with local avoidance and stuck detection, so a blocked unit gives up its order instead of pushing forever.
+- `SelectionController`: finger-friendly screen-space picking (72 px radius), plus select only, toggle, select all and clear. Freed units leave the selection safely.
+- `CommandController`: validates move targets. A tap on a rock or structure is rejected with a red cross; a valid move shows a cyan pulse and spreads units in a sunflower formation.
+- Camera now reports taps and long presses (one finger, no drag); drags still pan and pinch still zooms.
+- HUD: selection summary (count and unit types), Clear and All Units buttons, updated control hint.
+- Original low-poly unit models: amber Workers with a hard hat, tank and salvage claw; armored Rifle units with a visor and rifle.
+- Navigation mesh baked at map load, with obstacles carved out by `NavigationObstacle3D` so rock tops never become walkable.
+- Scenario tests: units spawn on walkable ground, select all, screen picking, a rejected move into a rock, a group crossing the map past a ruin, a freed unit leaving the selection, and clear.
+
+**Changed:**
+- `MeshKit` holds the shared mesh and material helpers used by map props, units and markers.
+- Tests run with `--fixed-fps 60` for deterministic simulation.
+- CI actions updated (checkout v7, setup-java v6, cache v6), clearing the Node 20 deprecation warnings.
+
+**Tests/checks:**
+- Smoke and scenario tests pass locally.
+- `tools/build_release.sh` builds both release APKs (versionCode 200).
+- On-device results are in `docs/currentstate.md`.
+
+**Known limitations:**
+- No drag-box selection (hold-to-add is the multi-select method on mobile).
+- Units have no combat, health or gathering yet (M2/M3).
+- Units at the back of a group can stop up to about 2 m outside their exact formation slot when crowded.
