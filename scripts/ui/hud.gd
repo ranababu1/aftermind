@@ -17,6 +17,10 @@ signal clear_selection_requested
 @onready var _selection_detail: Label = %SelectionDetail
 @onready var _clear_button: Button = %ClearButton
 @onready var _all_button: Button = %AllButton
+@onready var _resource_chips: Dictionary = {
+	Economy.SCRAP: %ScrapChip,
+	Economy.ENERGY: %EnergyChip,
+}
 
 
 func _ready() -> void:
@@ -27,6 +31,13 @@ func _ready() -> void:
 	var tween := create_tween()
 	tween.tween_interval(hint_duration)
 	tween.tween_property(_hint, "modulate:a", 0.0, 1.2)
+
+
+func bind_economy(economy: Economy) -> void:
+	for resource in Economy.RESOURCES:
+		(_resource_chips[resource] as ResourceChip).set_amount(economy.amount(resource))
+	economy.changed.connect(_on_resource_changed)
+	economy.spend_failed.connect(_on_spend_failed.bind(economy))
 
 
 func set_map_name(map_name: String) -> void:
@@ -48,3 +59,14 @@ func show_selection(units: Array[Unit]) -> void:
 	for unit_name in counts:
 		parts.append("%s ×%d" % [unit_name, counts[unit_name]])
 	_selection_detail.text = "  ·  ".join(parts)
+
+
+func _on_resource_changed(resource: StringName, amount: int) -> void:
+	if _resource_chips.has(resource):
+		(_resource_chips[resource] as ResourceChip).set_amount(amount)
+
+
+func _on_spend_failed(cost: Dictionary, economy: Economy) -> void:
+	for resource in cost:
+		if _resource_chips.has(resource) and economy.amount(resource) < int(cost[resource]):
+			(_resource_chips[resource] as ResourceChip).flash_shortage()

@@ -13,6 +13,7 @@ const NAV_SYNC_MAX_FRAMES := 600
 
 @onready var _map: MapBuilder = $Battlefield/Map
 @onready var _camera: RtsCamera = $CameraRig
+@onready var _economy: Economy = $PlayerEconomy
 @onready var _units: Node3D = $Units
 @onready var _selection: SelectionController = $SelectionController
 @onready var _commands: CommandController = $CommandController
@@ -28,6 +29,7 @@ func _ready() -> void:
 	_selection.setup(_camera.get_camera())
 	_commands.setup(_map)
 	_hud.set_map_name(definition.display_name)
+	_hud.bind_economy(_economy)
 	_hud.pause_requested.connect(_pause_menu.open)
 	_hud.select_all_requested.connect(_selection.select_all)
 	_hud.clear_selection_requested.connect(_selection.clear)

@@ -25,6 +25,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	_check_map_definition()
+	_check_economy()
 	for path in SCENES:
 		await _check_scene(path)
 	await _check_pause_cycle()
@@ -144,3 +145,23 @@ func _check_movement_and_selection() -> void:
 	_expect(not selection.has_selection(), "clear empties the selection")
 	skirmish.queue_free()
 	await process_frame
+
+
+func _check_economy() -> void:
+	var economy := Economy.new()
+	economy.starting_scrap = 100
+	economy.starting_energy = 20
+	root.add_child(economy)
+	_expect(economy.amount(Economy.SCRAP) == 100 and economy.amount(Economy.ENERGY) == 20, "economy starts with configured balances")
+	_expect(economy.try_spend({Economy.SCRAP: 60}), "affordable spend succeeds")
+	_expect(economy.amount(Economy.SCRAP) == 40, "spend deducts exactly")
+	_expect(not economy.try_spend({Economy.SCRAP: 41}), "overspend is refused")
+	_expect(economy.amount(Economy.SCRAP) == 40, "refused spend changes nothing")
+	_expect(not economy.try_spend({Economy.SCRAP: 10, Economy.ENERGY: 21}), "partly affordable cost is refused")
+	_expect(economy.amount(Economy.SCRAP) == 40 and economy.amount(Economy.ENERGY) == 20, "refused multi-resource spend is atomic")
+	_expect(not economy.try_spend({Economy.SCRAP: -5}), "negative cost is refused")
+	economy.add(Economy.SCRAP, -50)
+	_expect(economy.amount(Economy.SCRAP) == 40, "negative income is ignored")
+	economy.add(Economy.ENERGY, 5)
+	_expect(economy.amount(Economy.ENERGY) == 25, "income adds")
+	economy.queue_free()

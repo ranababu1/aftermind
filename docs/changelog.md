@@ -67,3 +67,17 @@
 - No drag-box selection (hold-to-add is the multi-select method on mobile).
 - Units have no combat, health or gathering yet (M2/M3).
 - Units at the back of a group can stop up to about 2 m outside their exact formation slot when crowded.
+
+## v0.2.1 — 2026-11-03 — Scrap and Energy stockpile
+**Summary:** The match now tracks two resources, Scrap and Energy, shown at the top of the screen. You start with 300 Scrap and 100 Energy. Nothing spends or earns them yet; worker gathering and building costs come next.
+
+**Added:**
+- `Economy` (`scripts/economy/economy.gd`): one faction's stockpile. Spending is atomic (a multi-resource cost is paid in full or not at all), balances can never go negative, and negative costs or income are rejected.
+- HUD resource bar: one chip per resource with a colored marker and a text label, so it never relies on color alone. The amount pulses on change and flashes red when a purchase can't be afforded.
+
+**Tests/checks:**
+- Economy unit tests pass: exact deduction, refused overspend, atomic multi-resource refusal, negative cost and income rejected.
+- All earlier scenarios still pass.
+- HUD layout checked in a desktop render.
+
+**Known limitations:** No income or costs are wired up yet.

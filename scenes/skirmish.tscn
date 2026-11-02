@@ -10,12 +10,18 @@
 [ext_resource type="Resource" path="res://data/units/worker.tres" id="8"]
 [ext_resource type="Resource" path="res://data/units/rifle.tres" id="9"]
 [ext_resource type="Script" path="res://scripts/units/unit_definition.gd" id="10"]
+[ext_resource type="Script" path="res://scripts/economy/economy.gd" id="11"]
 
 [node name="Skirmish" type="Node3D"]
 script = ExtResource("1")
 starting_units = Array[ExtResource("10")]([ExtResource("8"), ExtResource("8"), ExtResource("8"), ExtResource("9"), ExtResource("9"), ExtResource("9"), ExtResource("9"), ExtResource("9")])
 
 [node name="Battlefield" parent="." instance=ExtResource("2")]
+
+[node name="PlayerEconomy" type="Node" parent="."]
+script = ExtResource("11")
+starting_scrap = 300
+starting_energy = 100
 
 [node name="Units" type="Node3D" parent="."]
 
