@@ -174,3 +174,31 @@
 - Release build installs and launches into a skirmish on the Pixel 10 Pro AVD with no errors. The well-bonus text itself was checked by test, not on screen.
 
 **Known limitations:** The Energy Wells are not yet contested, since there is no enemy (M4).
+
+## v0.3.0 — 2026-11-03 — M2 complete: economy and construction
+**Summary:** Milestone M2 is done. A match now has a working economy loop:
+1. Workers gather Scrap from piles and deliver it to the Command Nexus or a Salvage Depot.
+2. You spend it on buildings placed with a clear green/red ghost.
+3. Workers construct and repair those buildings.
+4. Power Reactors generate Energy, double when built beside an Energy Well.
+
+This release has no new gameplay over v0.2.5; it closes the milestone and refreshes the project documentation.
+
+**Changed:** `docs/currentstate.md` is fully refreshed for M2:
+- project layout and implemented features;
+- a 13-step on-device checklist;
+- verification status and known risks;
+- the next M3 plan.
+
+**M2 exit criteria:**
+- **Resources cannot become negative:** atomic spending, repair and placement tests.
+- **Invalid building placement is rejected clearly:** six refusal reasons tested and shown in the placement bar.
+- **Workers recover from depleted nodes and invalid targets:** retargeting, "No scrap nearby", "Can't reach" and job-cancel tests.
+
+**Tests/checks:**
+- Full test suite passes.
+- Emulator verification across v0.2.0–v0.2.5 as listed in `currentstate.md`.
+
+**Known limitations:**
+- Not yet run on a physical phone; pinch zoom untested.
+- No performance measurements yet.
