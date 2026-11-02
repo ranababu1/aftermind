@@ -102,3 +102,32 @@
 **Known limitations:**
 - Energy has no source yet (Power Reactor comes with construction).
 - No Salvage Depot drop-off yet.
+
+## v0.2.3 — 2026-11-03 — Construction foundations
+**Summary:** The groundwork for building a base. The four Remnant structures exist as data with original models, placement rules, costs and construction progress. There is no build menu yet, so this release looks the same in play; the menu and workers building come in the next release.
+
+**Added:**
+- `BuildingDefinition` data for four buildings:
+  - **Salvage Depot**: 120 Scrap; drop-off point.
+  - **Power Reactor**: 150 Scrap; +60 Energy per minute.
+  - **Fabrication Bay**: 200 Scrap + 50 Energy.
+  - **Research Lab**: 150 Scrap + 100 Energy.
+- `Structure`: a construction site that rises as it is built (scaffold plus percent label). Health grows with progress, and on completion the building applies its role (drop-off, Energy). It can take damage, be repaired, and be destroyed.
+- `ConstructionService`: validates placement with a clear reason (edge of map, blocked ground, overlapping building, too close to a deposit, units in the way, not enough resources), charges the cost atomically, and re-bakes navigation in the background so units path around new buildings (and through the gap when one is destroyed).
+- Navigation now bakes from a source group, so buildings anywhere in the scene can carve it.
+- `tests/capture_buildings.gd`: a visual-check script that places all four buildings and saves a screenshot.
+
+**Tests/checks:**
+- Construction scenarios pass:
+  - placement refused on the Nexus, a rock, the map edge, a scrap pile, and units;
+  - an unaffordable placement spends nothing;
+  - a valid placement charges the exact cost;
+  - no overlap is allowed;
+  - the navmesh is carved;
+  - construction completes with full health;
+  - a finished Reactor generates Energy;
+  - a finished Depot accepts deliveries;
+  - a destroyed building is removed.
+- Visual capture checked.
+
+**Known limitations:** No build menu or worker construction yet (next).

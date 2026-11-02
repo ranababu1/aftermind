@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BuildingDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/buildings/building_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+building_id = &"salvage_depot"
+display_name = "Salvage Depot"
+summary = "Workers drop scrap here. Build near distant piles."
+cost_scrap = 120
+max_health = 600
+build_seconds = 18.0
+footprint_radius = 3.2
+is_drop_off = true

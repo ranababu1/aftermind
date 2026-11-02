@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BuildingDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/buildings/building_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+building_id = &"power_reactor"
+display_name = "Power Reactor"
+summary = "Generates 60 Energy per minute."
+cost_scrap = 150
+max_health = 500
+build_seconds = 22.0
+footprint_radius = 3.0
+energy_per_minute = 60

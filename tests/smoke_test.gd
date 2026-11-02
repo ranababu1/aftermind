@@ -33,6 +33,7 @@ func _run() -> void:
 	await _check_pause_cycle()
 	await _check_movement_and_selection()
 	await _check_gathering()
+	await _check_construction()
 	if _failures.is_empty():
 		print("SMOKE TEST PASSED")
 		quit(0)
@@ -244,3 +245,88 @@ func _check_gathering() -> void:
 	_expect(lone.job == null, "move order cancels the gather job")
 	skirmish.queue_free()
 	await process_frame
+
+
+func _find_open_spot(service: ConstructionService, definition: BuildingDefinition, around: Vector3) -> Variant:
+	for ring in range(2, 9):
+		for step in 12:
+			var a := TAU * step / 12.0
+			var pos := around + Vector3(cos(a), 0, sin(a)) * ring * 4.0
+			if service.check_placement(definition, pos) == ConstructionService.Problem.NONE:
+				return pos
+	return null
+
+
+func _check_construction() -> void:
+	var skirmish: Node = await _spawn_skirmish()
+	var economy := skirmish.get_node("PlayerEconomy") as Economy
+	var service := skirmish.get_node("ConstructionService") as ConstructionService
+	var map := skirmish.get_node("Battlefield/Map") as MapBuilder
+	var Problem := ConstructionService.Problem
+	var reactor := load("res://data/buildings/power_reactor.tres") as BuildingDefinition
+	var depot := load("res://data/buildings/salvage_depot.tres") as BuildingDefinition
+	var start := map.definition.player_start
+	var rock: Vector4 = map.definition.rocks[0]
+
+	_expect(service.check_placement(reactor, start) == Problem.BLOCKED, "cannot build on the Command Nexus")
+	_expect(service.check_placement(reactor, Vector3(rock.x, 0, rock.y)) == Problem.BLOCKED, "cannot build on a rock")
+	_expect(service.check_placement(reactor, Vector3(map.definition.size.x * 0.5, 0, 0)) == Problem.OUT_OF_BOUNDS, "cannot build at the map edge")
+	_expect(service.check_placement(reactor, map.definition.scrap_sites[0] + Vector3(4, 0, 0)) == Problem.TOO_CLOSE_TO_DEPOSIT, "cannot build on a scrap pile")
+	var unit_spot := (skirmish.get_node("Units").get_child(0) as Unit).global_position
+	_expect(service.check_placement(reactor, unit_spot) in [Problem.UNITS_IN_THE_WAY, Problem.BLOCKED], "cannot build on top of units")
+
+	var spot: Variant = _find_open_spot(service, reactor, start)
+	_expect(spot != null, "an open building spot exists near the base")
+	if spot == null:
+		skirmish.queue_free()
+		return
+
+	# Unaffordable: refused, nothing spent.
+	economy.try_spend({Economy.SCRAP: economy.amount(Economy.SCRAP) - 10})
+	var before := economy.amount(Economy.SCRAP)
+	_expect(service.check_placement(reactor, spot, economy) == Problem.CANNOT_AFFORD, "unaffordable placement reports the shortage")
+	_expect(service.place(reactor, spot, economy, &"remnants") == null and economy.amount(Economy.SCRAP) == before, "unaffordable placement spends nothing")
+
+	economy.add(Economy.SCRAP, 1000)
+	before = economy.amount(Economy.SCRAP)
+	var site := service.place(reactor, spot, economy, &"remnants")
+	_expect(site != null, "valid placement creates a construction site")
+	_expect(economy.amount(Economy.SCRAP) == before - reactor.cost_scrap, "placement charges the exact cost")
+	_expect(service.check_placement(reactor, spot) == Problem.OVERLAPS_BUILDING, "cannot build on top of another building")
+	_expect(not site.is_complete() and site.health > 0.0, "a new site starts incomplete with some health")
+
+	# The footprint is carved out of navigation once the async re-bake lands.
+	var frames := 0
+	while _flat(NavigationServer3D.map_get_closest_point(map.navigation_map(), site.global_position), site.global_position) < reactor.footprint_radius and frames < SPAWN_FRAME_BUDGET:
+		await physics_frame
+		frames += 1
+	_expect(frames < SPAWN_FRAME_BUDGET, "new building is carved out of the navigation mesh")
+
+	var finished := false
+	for i in 1000:
+		if site.add_build_work(0.1):
+			finished = true
+			break
+	_expect(finished and site.is_complete(), "construction work completes the building")
+	_expect(is_equal_approx(site.health, reactor.max_health), "a finished building has full health")
+	var energy_before := economy.amount(Economy.ENERGY)
+	for i in 180:
+		await process_frame
+	_expect(economy.amount(Economy.ENERGY) >= energy_before + 2, "a finished reactor generates energy")
+
+	var depot_spot: Variant = _find_open_spot(service, depot, start)
+	var depot_site := service.place(depot, depot_spot, economy, &"remnants") if depot_spot != null else null
+	_expect(depot_site != null, "a salvage depot can be placed")
+	if depot_site != null:
+		while not depot_site.add_build_work(1.0):
+			pass
+		_expect(DropOff.nearest(self, &"remnants", depot_site.global_position).get_parent() == depot_site, "a finished depot accepts deliveries")
+		depot_site.take_damage(depot.max_health * 2.0)
+		await process_frame
+		_expect(not is_instance_valid(depot_site), "a destroyed building is removed")
+	skirmish.queue_free()
+	await process_frame
+
+
+func _flat(a: Vector3, b: Vector3) -> float:
+	return Vector2(a.x - b.x, a.z - b.z).length()

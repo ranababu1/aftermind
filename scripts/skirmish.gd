@@ -18,6 +18,7 @@ const NEXUS_DROP_OFF_RADIUS := 6.4
 @onready var _camera: RtsCamera = $CameraRig
 @onready var _economy: Economy = $PlayerEconomy
 @onready var _units: Node3D = $Units
+@onready var _construction: ConstructionService = $ConstructionService
 @onready var _selection: SelectionController = $SelectionController
 @onready var _commands: CommandController = $CommandController
 @onready var _hud: Hud = $HUD
@@ -31,6 +32,7 @@ func _ready() -> void:
 	_camera.focus_on(definition.player_start + START_FOCUS_OFFSET)
 	_selection.setup(_camera.get_camera())
 	_commands.setup(_map)
+	_construction.setup(_map, $Structures)
 	_hud.set_map_name(definition.display_name)
 	_hud.bind_economy(_economy)
 	_hud.pause_requested.connect(_pause_menu.open)

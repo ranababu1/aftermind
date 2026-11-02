@@ -21,10 +21,14 @@ const BLOCKER_SIDES := 12
 ## only so taps on them can be detected and are excluded from the bake.
 const GROUND_LAYER := 1
 const OBSTACLE_LAYER := 2
+## Anything in this group (with its children) is parsed when baking, so
+## buildings placed during a match can carve the navigation mesh too.
+const NAV_SOURCE_GROUP := &"navigation_source"
 
 @export var definition: MapDefinition
 
 var _nav_region: NavigationRegion3D
+var _rebake_pending: bool = false
 
 
 func _ready() -> void:
@@ -43,6 +47,7 @@ func build() -> void:
 	# Ground and blockers live under the region so baking finds them.
 	_nav_region = NavigationRegion3D.new()
 	_nav_region.name = "Navigation"
+	_nav_region.add_to_group(NAV_SOURCE_GROUP)
 	add_child(_nav_region)
 	_add_ground_collider()
 	for r in definition.rocks:
@@ -161,13 +166,40 @@ func _bake_navigation() -> void:
 	var nav := NavigationMesh.new()
 	nav.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
 	nav.geometry_collision_mask = 1 << (GROUND_LAYER - 1)
+	nav.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN
+	nav.geometry_source_group_name = NAV_SOURCE_GROUP
 	nav.cell_size = NAV_CELL_SIZE
 	nav.cell_height = NAV_CELL_HEIGHT
 	nav.agent_radius = NAV_AGENT_RADIUS
 	nav.agent_height = 2.0
 	nav.agent_max_climb = 0.25
 	_nav_region.navigation_mesh = nav
+	_nav_region.bake_finished.connect(_on_bake_finished)
 	_nav_region.bake_navigation_mesh(false)
+
+
+## Re-bakes on a worker thread after the blocking layout changed (for
+## example a building was placed). The old mesh stays in use until it is done.
+func rebake_navigation() -> void:
+	if _nav_region == null or _nav_region.is_baking():
+		_rebake_pending = true
+		return
+	_nav_region.bake_navigation_mesh(true)
+
+
+## Carves `radius` around `owner_node` out of navigation on the next bake.
+func add_footprint_blocker(owner_node: Node3D, radius: float, height: float) -> void:
+	var holder := Node3D.new()
+	holder.name = "NavBlocker"
+	holder.add_to_group(NAV_SOURCE_GROUP)
+	owner_node.add_child(holder)
+	_add_round_blocker(holder, radius, height)
+
+
+func _on_bake_finished() -> void:
+	if _rebake_pending:
+		_rebake_pending = false
+		_nav_region.bake_navigation_mesh(true)
 
 
 func _place(node: Node3D, pos: Vector3, parent: Node) -> Node3D:

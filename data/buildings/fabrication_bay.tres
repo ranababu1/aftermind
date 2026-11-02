@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BuildingDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/buildings/building_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+building_id = &"fabrication_bay"
+display_name = "Fabrication Bay"
+summary = "Produces combat units."
+cost_scrap = 200
+cost_energy = 50
+max_health = 900
+build_seconds = 30.0
+footprint_radius = 4.2
