@@ -273,3 +273,54 @@ Full suite passes.
 - Only Rifle Units for now. Heavy, Scout Drone and Siege Walker come with combat.
 - No rally point yet.
 - The Command Nexus cannot train Workers yet.
+
+## v0.3.3 — 2026-11-03 — Combat: health, targeting, damage, death
+**Summary:** Units can fight. Four Collective **Sentinels** (red-eyed hover drones) now guard the AI Core at the center of Ashfall Basin, so there's something to fight before the full enemy arrives in M4.
+- Units and buildings have health.
+- Armed units fire on a cooldown with visible tracers and impact sparks.
+- Destroyed units burst into shards.
+- Floating health bars appear over damaged or selected units and damaged buildings; they turn red when low.
+
+**How it plays:**
+- **Automatic engagement:** idle armed units engage the nearest enemy in sight (Rifle 13 m, Sentinel 12 m). When the target dies they move on to the next enemy in sight.
+- **Attack orders:** select units and tap an enemy. A red ring confirms the order, and the units chase it even beyond sight. Workers can't attack, so an order with no armed units shows a red cross.
+- **Movement:** a move order always overrides fighting, so you can retreat.
+- **Sentinels:** they hold their posts, give up a chase once they stray past their sight range, and return to their post.
+
+**Stats (data-driven in `data/units/*.tres`):**
+
+| Unit | HP | Damage | Range | Reload |
+|---|---|---|---|---|
+| Rifle | 120 | 10 | 9 m | 0.8 s |
+| Sentinel | 150 | 8 | 9 m | 1.0 s |
+| Worker | 80 | — | — | — |
+
+**Key files/systems:**
+- New: `scripts/combat/combat.gd` (targeting rules), `scripts/units/attack_job.gd`, `scripts/visual/health_bar.gd`, `scripts/visual/combat_effects.gd`, `data/units/sentinel.tres`.
+- Changed:
+  - `unit.gd`: health, damage, death, idle auto-engagement, guard posts;
+  - `unit_definition.gd`: combat stats;
+  - `structure.gd`: health bar;
+  - `unit_visuals.gd`: Sentinel model;
+  - `selection_controller.gd`: `pick_enemy`;
+  - `command_controller.gd`: `issue_attack`;
+  - `map_definition.gd` and `ashfall_basin.tres`: `sentry_posts`;
+  - `skirmish.gd`: spawns sentries, routes taps on enemies.
+
+**Tests/checks:**
+- New combat scenario:
+  - a Sentinel guards every post;
+  - an idle Rifle engages and defeats a Sentinel in sight, takes return fire, and the Sentinel dies exactly once and leaves the battlefield;
+  - enemies beyond sight are not engaged automatically;
+  - an ordered squad chases and defeats a target out of sight;
+  - attack orders with only Workers are refused;
+  - a Sentinel destroys an unarmed Worker;
+  - units damage structures;
+  - a displaced guard walks back to its post.
+- Existing tests now count only the player's units.
+- Full suite passes.
+
+**Known limitations:**
+- Only Rifle Units and Sentinels so far. Heavy, Scout Drone and Siege Walker are next.
+- No attack-move yet.
+- Sentinels don't respawn.

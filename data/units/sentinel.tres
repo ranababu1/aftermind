@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="UnitDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/units/unit_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+unit_id = &"sentinel"
+display_name = "Sentinel"
+move_speed = 4.5
+radius = 0.8
+max_health = 150
+attack_damage = 8.0
+attack_range = 9.0
+attack_seconds = 1.0
+sight_range = 12.0

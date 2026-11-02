@@ -94,6 +94,21 @@ func issue_build(units: Array[Unit], structure: Structure) -> bool:
 	return assigned
 
 
+## Orders every armed unit in `units` to attack `target`. Returns false
+## when none of them can.
+func issue_attack(units: Array[Unit], target: Node3D) -> bool:
+	if not Combat.is_alive(target):
+		return false
+	var assigned := false
+	for unit in units:
+		if is_instance_valid(unit) and unit.can_attack() and unit.faction != Combat.faction_of(target):
+			unit.assign_job(AttackJob.new(target))
+			assigned = true
+	if assigned:
+		add_child(CommandMarkers.attack_marker(target.global_position, Combat.radius_of(target) + 0.8))
+	return assigned
+
+
 ## A spot beside `site` on the side the group comes from, so escorts do not
 ## crowd the workers' harvesting ring.
 func _staging_point(units: Array[Unit], site: Vector3) -> Vector3:

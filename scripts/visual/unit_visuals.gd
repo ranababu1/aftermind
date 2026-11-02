@@ -10,6 +10,10 @@ const HIVIS_COLOR := Color(0.95, 0.6, 0.15)
 const HAT_COLOR := Color(1.0, 0.82, 0.25)
 const ACCENT_COLOR := Color(0.25, 0.82, 0.88)
 const SELECTION_COLOR := Color(0.35, 0.95, 1.0)
+const HEALTH_COLOR := Color(0.45, 1.0, 0.6)
+const COLLECTIVE_BODY := Color(0.09, 0.09, 0.11)
+const COLLECTIVE_PLATE := Color(0.3, 0.3, 0.34)
+const COLLECTIVE_EYE := Color(1.0, 0.27, 0.22)
 ## Models are stylized larger than life so they read on a phone screen.
 const MODEL_SCALE := 1.4
 
@@ -21,6 +25,8 @@ static func build(unit_id: StringName) -> Node3D:
 			model = _worker()
 		&"rifle":
 			model = _rifle()
+		&"sentinel":
+			model = _sentinel()
 		_:
 			push_warning("UnitVisuals: no model for '%s'" % unit_id)
 			model = _rifle()
@@ -65,6 +71,34 @@ static func _rifle() -> Node3D:
 	root.add_child(MeshKit.instance(_box_mesh(Vector3(0.34, 0.08, 0.06)), MeshKit.emissive(ACCENT_COLOR, 3.0), Vector3(0, 1.8, -0.21)))
 	root.add_child(_box(Vector3(0.09, 0.09, 1.0), STEEL_COLOR, Vector3(0.36, 1.2, -0.3), 0.4, 0.7))
 	root.add_child(MeshKit.instance(_box_mesh(Vector3(0.06, 0.4, 0.3)), MeshKit.emissive(ACCENT_COLOR, 2.0), Vector3(-0.36, 1.25, 0)))
+	return root
+
+
+## Collective guard drone: a hovering dark hull with one red eye.
+static func _sentinel() -> Node3D:
+	var root := Node3D.new()
+	root.name = "SentinelModel"
+	var hull := SphereMesh.new()
+	hull.radius = 0.55
+	hull.height = 0.8
+	hull.radial_segments = 8
+	hull.rings = 4
+	root.add_child(MeshKit.instance(MeshKit.faceted(hull), MeshKit.solid(COLLECTIVE_BODY, 0.35, 0.6), Vector3(0, 1.35, 0)))
+	root.add_child(_box(Vector3(1.5, 0.08, 0.36), COLLECTIVE_PLATE, Vector3(0, 1.35, 0.05), 0.4, 0.7))
+	root.add_child(_box(Vector3(0.12, 0.5, 0.4), COLLECTIVE_PLATE, Vector3(0.76, 1.3, 0.05), 0.4, 0.7))
+	root.add_child(_box(Vector3(0.12, 0.5, 0.4), COLLECTIVE_PLATE, Vector3(-0.76, 1.3, 0.05), 0.4, 0.7))
+	var eye := SphereMesh.new()
+	eye.radius = 0.16
+	eye.height = 0.32
+	root.add_child(MeshKit.instance(eye, MeshKit.emissive(COLLECTIVE_EYE, 5.0), Vector3(0, 1.38, -0.48)))
+	root.add_child(_box(Vector3(0.08, 0.08, 0.7), COLLECTIVE_PLATE, Vector3(0, 1.08, -0.35), 0.4, 0.7))
+	var emitter := CylinderMesh.new()
+	emitter.top_radius = 0.22
+	emitter.bottom_radius = 0.05
+	emitter.height = 0.35
+	emitter.radial_segments = 6
+	emitter.rings = 1
+	root.add_child(MeshKit.instance(emitter, MeshKit.emissive(COLLECTIVE_EYE, 2.5), Vector3(0, 0.85, 0)))
 	return root
 
 

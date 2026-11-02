@@ -6,6 +6,8 @@ extends Node3D
 ## the job.
 
 signal order_finished(unit: Unit)
+signal health_changed(unit: Unit)
+signal died(unit: Unit)
 
 const GROUP := &"units"
 const ARRIVAL_DISTANCE := 0.5
@@ -13,6 +15,12 @@ const ARRIVAL_DISTANCE := 0.5
 ## abandons its order instead of pushing against a blocker forever.
 const STUCK_SECONDS := 2.0
 const STUCK_MIN_PROGRESS := 0.4
+## Idle armed units look for enemies this often.
+const ACQUIRE_SECONDS := 0.25
+## A guard further than this from its post walks back when idle.
+const GUARD_SLACK := 2.0
+const HEALTH_BAR_HEIGHT := 3.3
+const HEALTH_BAR_WIDTH := 1.5
 
 @export var definition: UnitDefinition
 @export var faction: StringName = &"remnants"
@@ -20,12 +28,16 @@ const STUCK_MIN_PROGRESS := 0.4
 ## Stockpile that this unit's deliveries go to.
 var economy: Economy
 var job: Node = null
+var health: float = 0.0
+## Post that an idle unit returns to (Vector3), or null.
+var guard_point: Variant = null
 
 var selected: bool = false:
 	set(value):
 		selected = value
 		if _selection_ring != null:
 			_selection_ring.visible = value
+		_refresh_health_bar()
 
 var _agent: NavigationAgent3D
 var _selection_ring: MeshInstance3D
@@ -33,6 +45,8 @@ var _cargo: Node3D
 var _moving: bool = false
 var _stuck_timer: float = 0.0
 var _stuck_origin: Vector3 = Vector3.ZERO
+var _health_bar: HealthBar
+var _acquire_timer: float = 0.0
 
 
 func _ready() -> void:
@@ -41,6 +55,14 @@ func _ready() -> void:
 	_selection_ring = UnitVisuals.selection_ring(definition.radius)
 	_selection_ring.visible = selected
 	add_child(_selection_ring)
+	if health <= 0.0:
+		health = definition.max_health
+	_health_bar = HealthBar.new(HEALTH_BAR_WIDTH, HealthBar.LOW_COLOR if faction == Combat.COLLECTIVE else UnitVisuals.HEALTH_COLOR)
+	_health_bar.position = Vector3(0, HEALTH_BAR_HEIGHT, 0)
+	add_child(_health_bar)
+	_refresh_health_bar()
+	# Stagger enemy scans so a large army does not search on the same frame.
+	_acquire_timer = float(get_instance_id() % 16) / 16.0 * ACQUIRE_SECONDS
 	_agent = NavigationAgent3D.new()
 	_agent.radius = definition.radius
 	_agent.height = 2.4
@@ -55,6 +77,36 @@ func _ready() -> void:
 		_cargo = UnitVisuals.cargo()
 		_cargo.visible = false
 		add_child(_cargo)
+
+
+func can_attack() -> bool:
+	return definition.attack_damage > 0.0
+
+
+func take_damage(amount: float) -> void:
+	if health <= 0.0 or amount <= 0.0:
+		return
+	health = maxf(health - amount, 0.0)
+	_refresh_health_bar()
+	health_changed.emit(self)
+	if health <= 0.0:
+		_die()
+
+
+func _die() -> void:
+	cancel_job()
+	_moving = false
+	remove_from_group(GROUP)
+	CombatEffects.death_burst(get_parent(), global_position, CombatEffects.faction_color(faction))
+	died.emit(self)
+	queue_free()
+
+
+func _refresh_health_bar() -> void:
+	if _health_bar == null:
+		return
+	_health_bar.visible = selected or health < definition.max_health
+	_health_bar.set_fraction(health / maxf(definition.max_health, 1.0))
 
 
 func is_moving() -> bool:
@@ -110,6 +162,8 @@ func stop() -> void:
 
 func _physics_process(delta: float) -> void:
 	if not _moving:
+		if job == null:
+			_idle(delta)
 		return
 	if _agent.is_navigation_finished():
 		stop()
@@ -135,3 +189,19 @@ func _on_velocity_computed(safe_velocity: Vector3) -> void:
 	if safe_velocity.length_squared() > 0.04:
 		var target_yaw := atan2(-safe_velocity.x, -safe_velocity.z)
 		rotation.y = lerp_angle(rotation.y, target_yaw, 1.0 - exp(-definition.turn_speed * delta))
+
+
+## Idle behaviour: armed units engage enemies in sight; guards walk back to
+## their post.
+func _idle(delta: float) -> void:
+	_acquire_timer -= delta
+	if _acquire_timer > 0.0:
+		return
+	_acquire_timer = ACQUIRE_SECONDS
+	if can_attack():
+		var enemy := Combat.nearest_enemy(get_tree(), global_position, faction, definition.sight_range)
+		if enemy != null:
+			assign_job(AttackJob.new(enemy, true))
+			return
+	if guard_point != null and Vector2(global_position.x - guard_point.x, global_position.z - guard_point.z).length() > GUARD_SLACK:
+		move_to(guard_point)

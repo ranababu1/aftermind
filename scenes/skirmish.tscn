@@ -18,11 +18,13 @@
 [ext_resource type="Resource" path="res://data/buildings/power_reactor.tres" id="16"]
 [ext_resource type="Resource" path="res://data/buildings/fabrication_bay.tres" id="17"]
 [ext_resource type="Resource" path="res://data/buildings/research_lab.tres" id="18"]
+[ext_resource type="Resource" path="res://data/units/sentinel.tres" id="19"]
 
 [node name="Skirmish" type="Node3D"]
 script = ExtResource("1")
 starting_units = Array[ExtResource("10")]([ExtResource("8"), ExtResource("8"), ExtResource("8"), ExtResource("9"), ExtResource("9"), ExtResource("9"), ExtResource("9"), ExtResource("9")])
 buildable = Array[ExtResource("14")]([ExtResource("16"), ExtResource("15"), ExtResource("17"), ExtResource("18")])
+sentry_unit = ExtResource("19")
 
 [node name="Battlefield" parent="." instance=ExtResource("2")]
 

@@ -44,13 +44,22 @@ func select_structure(structure: Structure) -> void:
 
 ## Returns the closest owned unit under a screen position, or null.
 func pick_unit(screen_position: Vector2) -> Unit:
+	return _pick(screen_position, false)
+
+
+## Returns the closest hostile unit under a screen position, or null.
+func pick_enemy(screen_position: Vector2) -> Unit:
+	return _pick(screen_position, true)
+
+
+func _pick(screen_position: Vector2, hostile: bool) -> Unit:
 	if _camera == null:
 		return null
 	var best: Unit = null
 	var best_distance := PICK_RADIUS_PX
 	for node in get_tree().get_nodes_in_group(Unit.GROUP):
 		var unit := node as Unit
-		if unit == null or unit.faction != faction or not unit.is_inside_tree():
+		if unit == null or (unit.faction != faction) != hostile or not unit.is_inside_tree():
 			continue
 		var anchor := unit.global_position + Vector3.UP * PICK_HEIGHT
 		if _camera.is_position_behind(anchor):

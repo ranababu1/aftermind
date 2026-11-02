@@ -13,6 +13,8 @@ extends Resource
 @export var scrap_per_site: int = 600
 @export var energy_sites: Array[Vector3] = []
 @export var core_site: Vector3 = Vector3.ZERO
+## Collective guards hold these points from the start of the match.
+@export var sentry_posts: Array[Vector3] = []
 ## Rock formations: x, z, radius, height.
 @export var rocks: Array[Vector4] = []
 ## Ruined structures: x, z, footprint size, height.

@@ -14,6 +14,8 @@ const NEXUS_DROP_OFF_RADIUS := 6.4
 
 @export var starting_units: Array[UnitDefinition] = []
 @export var buildable: Array[BuildingDefinition] = []
+## Collective guard placed on each of the map's sentry posts.
+@export var sentry_unit: UnitDefinition
 
 @onready var _map: MapBuilder = $Battlefield/Map
 @onready var _camera: RtsCamera = $CameraRig
@@ -62,6 +64,7 @@ func _ready() -> void:
 		await get_tree().physics_frame
 		waited += 1
 	_spawn_starting_units()
+	_spawn_sentries()
 
 
 func _notification(what: int) -> void:
@@ -85,6 +88,22 @@ func _spawn_starting_units() -> void:
 		unit.position = _commands.closest_walkable(rally + offsets[i])
 		unit.rotation.y = atan2(-toward_center.x, -toward_center.z)
 		unit.economy = _economy
+		_units.add_child(unit)
+
+
+func _spawn_sentries() -> void:
+	if sentry_unit == null:
+		return
+	var posts := _map.definition.sentry_posts
+	for i in posts.size():
+		var unit := Unit.new()
+		unit.definition = sentry_unit
+		unit.faction = Combat.COLLECTIVE
+		unit.name = "Sentinel%d" % i
+		unit.position = _commands.closest_walkable(posts[i])
+		unit.guard_point = unit.position
+		var outward := posts[i] - _map.definition.core_site
+		unit.rotation.y = atan2(-outward.x, -outward.z)
 		_units.add_child(unit)
 
 
@@ -119,6 +138,11 @@ func _on_world_tapped(screen_position: Vector2) -> void:
 	if unit != null:
 		_selection.select_only(unit)
 		return
+	var enemy := _selection.pick_enemy(screen_position)
+	if enemy != null and _selection.has_selection():
+		if not _commands.issue_attack(_selection.selected_units(), enemy):
+			_commands.reject(enemy.global_position)
+		return
 	var deposit := _selection.pick_in_group(ResourceNode.GROUP, screen_position, 0.5, DEPOSIT_PICK_RADIUS_PX) as ResourceNode
 	if deposit != null and _selection.has_selection():
 		_commands.issue_gather(_selection.selected_units(), deposit)
@@ -128,6 +152,10 @@ func _on_world_tapped(screen_position: Vector2) -> void:
 	var structure_hit := _camera.raycast(screen_position, 1 << (Structure.PICK_LAYER - 1))
 	if not structure_hit.is_empty():
 		var structure := Structure.from_collider(structure_hit.collider)
+		if structure != null and structure.faction != _selection.faction and _selection.has_selection():
+			if not _commands.issue_attack(_selection.selected_units(), structure):
+				_commands.reject(structure_hit.position)
+			return
 		if not _commands.issue_build(_selection.selected_units(), structure):
 			_selection.select_structure(structure)
 		return

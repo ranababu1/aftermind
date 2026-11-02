@@ -10,6 +10,18 @@ extends Resource
 ## Footprint used for avoidance and the selection ring.
 @export var radius: float = 0.6
 
+@export_group("Combat")
+@export var max_health: int = 100
+## Damage per shot; 0 means the unit cannot attack.
+@export var attack_damage: float = 0.0
+## Reach from the unit to the target's edge.
+@export var attack_range: float = 8.0
+## Seconds between shots.
+@export var attack_seconds: float = 1.0
+## Idle units engage enemies this close on their own.
+@export var sight_range: float = 12.0
+@export var structure_damage_multiplier: float = 1.0
+
 @export_group("Production")
 @export var cost_scrap: int = 0
 @export var cost_energy: int = 0

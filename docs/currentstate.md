@@ -1,9 +1,9 @@
 # AFTERMIND — Current State
 
-_Last updated: 2026-11-03 — version 0.3.2_
+_Last updated: 2026-11-03 — version 0.3.3_
 
 ## Milestone
-**M3: Production and combat — in progress (v0.3.1: building selection; v0.3.2: production queue).** M2 (economy and construction) is complete.
+**M3: Production and combat — in progress (v0.3.1: building selection; v0.3.2: production queue; v0.3.3: combat).** M2 (economy and construction) is complete.
 - M2 exit criteria, all covered by tests:
   - resources cannot go negative;
   - invalid placement is rejected with a clear reason;
@@ -42,7 +42,8 @@ _Last updated: 2026-11-03 — version 0.3.2_
   - `structure.gd` (construction, health, repair, damage, roles; tap body on layer 3);
   - `construction_service.gd` (placement rules, cost, spawn, re-bake);
   - `placement_controller.gd` (ghost placement mode).
-- `scripts/units/`: `unit_definition.gd`, `unit.gd` (movement, avoidance, stuck detection, one job at a time), `gather_job.gd`, `build_job.gd`.
+- `scripts/units/`: `unit_definition.gd`, `unit.gd` (movement, avoidance, stuck detection, one job at a time, health, idle engagement, guard posts), `gather_job.gd`, `build_job.gd`, `attack_job.gd`.
+- `scripts/combat/combat.gd`: shared targeting rules (alive, faction, range, nearest enemy).
 - `scripts/control/`: `selection_controller.gd`, `command_controller.gd` (move, gather, build orders and feedback).
 - `scripts/visual/`: `mesh_kit.gd`, `map_props.gd`, `unit_visuals.gd`, `building_visuals.gd`, `command_markers.gd`, `floating_text.gd`, `spinner.gd`.
 - `scripts/ui/`: `main_menu.gd`, `hud.gd`, `resource_chip.gd`, `build_panel.gd`, `pause_menu.gd`, `safe_area_margin.gd`.
@@ -78,11 +79,16 @@ _Last updated: 2026-11-03 — version 0.3.2_
   - Fabrication Bay: produces Rifle Units through a 5-order queue (paid on queue, full refund on cancel). Finished units wait for a clear exit ("Exit blocked") and leave once one frees up.
   - Research Lab: placeholder role until M5.
   - All can take damage and be destroyed; navigation updates either way.
+- **Combat:**
+  - Units and buildings have health.
+  - Idle armed units engage enemies in sight; tap an enemy with units selected to attack it.
+  - Tracers, impact sparks, death bursts; health bars over damaged or selected units and damaged buildings.
+  - Four Collective Sentinels guard the AI Core and return to their posts.
 - **Building selection:** tap a building for a ring and an info chip (progress or health bar, role). Cancel Build removes a construction site and refunds 75%.
 
 ## Not implemented
 - Drag-box selection (hold-to-add is the mobile multi-select).
-- M3: remaining unit roster, combat, health bars, rally points.
+- M3: remaining unit roster (Heavy, Scout Drone, Siege Walker), attack-move, rally points.
 - M4: enemy AI, victory and defeat.
 - M5: AI Core and Evolution, tutorial, audio.
 - M6: release.
@@ -124,6 +130,7 @@ _Last updated: 2026-11-03 — version 0.3.2_
 13. HUD buttons never issue world orders; Cancel leaves placement mode.
 14. With nothing selected, tap a building: ring and info chip. On a construction site, Cancel Build refunds 75% and removes it.
 15. Select a finished Fabrication Bay: Rifle Unit (50 Scrap) queues with a progress bar, Cancel Last refunds, and the unit walks out of the bay.
+16. All Units, then tap a red Sentinel at the center: a red ring appears, Rifle Units close in and fire tracers, health bars drop, and the Sentinels burst on death. Survivors engage the rest automatically.
 
 ## Last verified (2026-11-03, v0.2.5 / v0.3.0)
 - Tests PASSED, covering:
@@ -149,9 +156,10 @@ _Last updated: 2026-11-03 — version 0.3.2_
 - Branch `main`, remote `origin` = https://github.com/ranababu1/aftermind.git. Each push is a versioned release.
 
 ## Next recommended task
-1. Install v0.3.0 on both phones and run checklist steps 1–13 (especially pinch zoom and how placement feels on a real screen).
-2. Start M3 in small releases:
+1. Install the latest release on both phones and run checklist steps 1–16 (especially pinch zoom and how placement feels on a real screen).
+2. Continue M3 in small releases:
    - ~~building selection with an info panel~~ (done in v0.3.1);
    - ~~Fabrication Bay production queue~~ (done in v0.3.2);
-   - unit health, targeting, damage and death for the initial roster (Rifle, Heavy, Scout Drone, Siege Walker);
-   - health bars and combat feedback.
+   - ~~unit health, targeting, damage, death, health bars and combat feedback~~ (done in v0.3.3);
+   - remaining roster: Heavy, Scout Drone, Siege Walker (Fabrication Bay production);
+   - attack-move and a rally point for produced units.

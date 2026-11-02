@@ -40,6 +40,7 @@ func _run() -> void:
 	await _check_energy_wells()
 	await _check_structure_selection()
 	await _check_production()
+	await _check_combat()
 	if _failures.is_empty():
 		print("SMOKE TEST PASSED")
 		quit(0)
@@ -107,7 +108,7 @@ func _check_movement_and_selection() -> void:
 	var map := skirmish.get_node("Battlefield/Map") as MapBuilder
 	var selection := skirmish.get_node("SelectionController") as SelectionController
 	var commands := skirmish.get_node("CommandController") as CommandController
-	var units := units_root.get_children()
+	var units := _player_units(skirmish)
 	_expect(units.size() == EXPECTED_STARTING_UNITS, "spawns %d starting units (got %d)" % [EXPECTED_STARTING_UNITS, units.size()])
 	if units.size() != EXPECTED_STARTING_UNITS:
 		skirmish.queue_free()
@@ -203,8 +204,7 @@ func _check_gathering() -> void:
 	var map := skirmish.get_node("Battlefield/Map") as MapBuilder
 	var workers: Array[Unit] = []
 	var riflemen: Array[Unit] = []
-	for node in skirmish.get_node("Units").get_children():
-		var unit := node as Unit
+	for unit in _player_units(skirmish):
 		(workers if unit.definition.can_gather else riflemen).append(unit)
 	_expect(workers.size() == 3, "three workers available")
 	_expect(not commands.issue_gather(riflemen, _nearest_deposit(map.definition.player_start)), "gather with no workers is refused")
@@ -276,7 +276,7 @@ func _check_construction() -> void:
 	_expect(service.check_placement(reactor, Vector3(rock.x, 0, rock.y)) == Problem.BLOCKED, "cannot build on a rock")
 	_expect(service.check_placement(reactor, Vector3(map.definition.size.x * 0.5, 0, 0)) == Problem.OUT_OF_BOUNDS, "cannot build at the map edge")
 	_expect(service.check_placement(reactor, map.definition.scrap_sites[0] + Vector3(4, 0, 0)) == Problem.TOO_CLOSE_TO_DEPOSIT, "cannot build on a scrap pile")
-	var unit_spot := (skirmish.get_node("Units").get_child(0) as Unit).global_position
+	var unit_spot := _player_units(skirmish)[0].global_position
 	_expect(service.check_placement(reactor, unit_spot) in [Problem.UNITS_IN_THE_WAY, Problem.BLOCKED], "cannot build on top of units")
 
 	var spot: Variant = _find_open_spot(service, reactor, start)
@@ -552,3 +552,105 @@ func _check_production() -> void:
 		_expect(_flat(produced.global_position, bay.global_position) > bay_def.footprint_radius, "the unit appears outside the building")
 	skirmish.queue_free()
 	await process_frame
+
+
+func _check_combat() -> void:
+	var skirmish: Node = await _spawn_skirmish()
+	var map := skirmish.get_node("Battlefield/Map") as MapBuilder
+	var units_root := skirmish.get_node("Units") as Node3D
+	var commands := skirmish.get_node("CommandController") as CommandController
+	var service := skirmish.get_node("ConstructionService") as ConstructionService
+	var economy := skirmish.get_node("PlayerEconomy") as Economy
+	var rifle_def := load("res://data/units/rifle.tres") as UnitDefinition
+	var worker_def := load("res://data/units/worker.tres") as UnitDefinition
+	var sentinel_def := load("res://data/units/sentinel.tres") as UnitDefinition
+	var sentries: Array[Unit] = []
+	for node in get_nodes_in_group(Unit.GROUP):
+		if (node as Unit).faction == Combat.COLLECTIVE:
+			sentries.append(node)
+	_expect(sentries.size() == map.definition.sentry_posts.size() and _player_units(skirmish).size() == EXPECTED_STARTING_UNITS, "a sentinel guards every sentry post")
+
+	# Duel in an empty corner: an idle rifle engages a sentinel in sight.
+	var arena := commands.closest_walkable(Vector3(-40, 0, -18))
+	var rifle := _spawn_test_unit(units_root, rifle_def, Combat.REMNANTS, arena)
+	var enemy := _spawn_test_unit(units_root, sentinel_def, Combat.COLLECTIVE, commands.closest_walkable(arena + Vector3(7, 0, 0)))
+	var deaths: Array[Unit] = []
+	enemy.died.connect(func(u: Unit) -> void: deaths.append(u))
+	var enemy_ref: WeakRef = weakref(enemy)
+	var rifle_ref: WeakRef = weakref(rifle)
+	await _wait_until(func() -> bool: return not Combat.is_alive(enemy_ref.get_ref()) or not Combat.is_alive(rifle_ref.get_ref()), 2400)
+	_expect(not Combat.is_alive(enemy) and Combat.is_alive(rifle), "an idle rifle engages and defeats a sentinel in sight")
+	_expect(deaths.size() == 1, "a unit dies exactly once")
+	_expect(Combat.is_alive(rifle) and rifle.health < rifle_def.max_health, "the sentinel fought back")
+	await physics_frame
+	_expect(not is_instance_valid(enemy) or not enemy.is_in_group(Unit.GROUP), "a dead unit leaves the battlefield")
+
+	# Ordered attack on a target beyond sight: the squad closes in.
+	var squad: Array[Unit] = []
+	for i in 3:
+		squad.append(_spawn_test_unit(units_root, rifle_def, Combat.REMNANTS, commands.closest_walkable(arena + Vector3(-2.0 * i, 0, 3))))
+	var far := _spawn_test_unit(units_root, sentinel_def, Combat.COLLECTIVE, commands.closest_walkable(arena + Vector3(17, 0, 3)))
+	await physics_frame
+	_expect(squad.all(func(u: Unit) -> bool: return u.job == null), "enemies beyond sight are not engaged automatically")
+	_expect(commands.issue_attack(squad, far), "rifles accept an attack order")
+	var far_ref: WeakRef = weakref(far)
+	await _wait_until(func() -> bool: return not Combat.is_alive(far_ref.get_ref()), 2400)
+	_expect(not Combat.is_alive(far), "an ordered attack chases and defeats a target out of sight")
+
+	# Workers cannot fight back; sentinels still shoot them.
+	var worker := _spawn_test_unit(units_root, worker_def, Combat.REMNANTS, commands.closest_walkable(arena + Vector3(-14, 0, -6)))
+	var hunter := _spawn_test_unit(units_root, sentinel_def, Combat.COLLECTIVE, commands.closest_walkable(arena + Vector3(-14, 0, -12)))
+	_expect(not commands.issue_attack([worker] as Array[Unit], hunter), "an attack order with no armed units is refused")
+	var worker_ref: WeakRef = weakref(worker)
+	await _wait_until(func() -> bool: return not Combat.is_alive(worker_ref.get_ref()), 1800)
+	_expect(not Combat.is_alive(worker), "a sentinel destroys an unarmed worker")
+
+	# Structures take damage too.
+	economy.add(Economy.SCRAP, 1000)
+	var depot_def := load("res://data/buildings/salvage_depot.tres") as BuildingDefinition
+	var spot: Variant = _find_open_spot(service, depot_def, map.definition.player_start)
+	var depot: Structure = service.place(depot_def, spot, economy, Combat.REMNANTS) if spot != null else null
+	while depot != null and not depot.add_build_work(1.0):
+		pass
+	_expect(depot != null and depot.is_complete(), "a depot to shoot at")
+	if depot != null:
+		var raider := _spawn_test_unit(units_root, sentinel_def, Combat.COLLECTIVE, depot.global_position + Vector3(0, 0, depot_def.footprint_radius + 3.0))
+		raider.assign_job(AttackJob.new(depot))
+		var raider_ref: WeakRef = weakref(raider)
+		await _wait_until(func() -> bool: return depot.health < depot_def.max_health or not Combat.is_alive(raider_ref.get_ref()), 600)
+		_expect(depot.health < depot_def.max_health, "units damage structures")
+
+	# A displaced guard returns to its post.
+	var guard := sentries[0]
+	var post: Vector3 = guard.guard_point
+	guard.global_position = commands.closest_walkable(post + Vector3(0, 0, 6))
+	await _wait_until(func() -> bool: return _flat(guard.global_position, post) <= Unit.GUARD_SLACK + 0.5, 900)
+	_expect(_flat(guard.global_position, post) <= Unit.GUARD_SLACK + 0.5, "an idle guard walks back to its post")
+	skirmish.queue_free()
+	await process_frame
+
+
+func _spawn_test_unit(parent: Node3D, definition: UnitDefinition, faction: StringName, pos: Vector3) -> Unit:
+	var unit := Unit.new()
+	unit.definition = definition
+	unit.faction = faction
+	unit.position = pos
+	parent.add_child(unit)
+	return unit
+
+
+func _wait_until(condition: Callable, max_frames: int) -> bool:
+	for i in max_frames:
+		if condition.call():
+			return true
+		await physics_frame
+	return condition.call()
+
+
+func _player_units(skirmish: Node) -> Array[Unit]:
+	var units: Array[Unit] = []
+	for node in skirmish.get_node("Units").get_children():
+		var unit := node as Unit
+		if unit != null and unit.faction == Combat.REMNANTS:
+			units.append(unit)
+	return units

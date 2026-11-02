@@ -40,6 +40,7 @@ var _model: Node3D
 var _scaffold: Node3D
 var _label: Label3D
 var _selection_ring: Node3D
+var _health_bar: HealthBar
 var _energy_carry: float = 0.0
 ## Energy per minute once complete (includes any Energy Well bonus).
 var energy_rate: float = 0.0
@@ -64,6 +65,9 @@ func _ready() -> void:
 	_selection_ring = BuildingVisuals.selection_ring(definition.footprint_radius)
 	_selection_ring.visible = selected
 	add_child(_selection_ring)
+	_health_bar = HealthBar.new(definition.footprint_radius * 0.9, HealthBar.LOW_COLOR if faction == Combat.COLLECTIVE else UnitVisuals.HEALTH_COLOR)
+	_health_bar.position = Vector3(0, LABEL_HEIGHT, 0)
+	add_child(_health_bar)
 	_add_pick_body()
 	if health <= 0.0:
 		health = definition.max_health * START_HEALTH_FRACTION
@@ -98,6 +102,7 @@ func repair(amount: float) -> void:
 	if not is_damaged() or amount <= 0.0:
 		return
 	health = minf(health + amount, definition.max_health)
+	_refresh_visuals()
 	health_changed.emit(self)
 
 
@@ -105,6 +110,7 @@ func take_damage(amount: float) -> void:
 	if health <= 0.0 or amount <= 0.0:
 		return
 	health = maxf(health - amount, 0.0)
+	_refresh_visuals()
 	health_changed.emit(self)
 	if health <= 0.0:
 		_remove()
@@ -209,3 +215,5 @@ func _refresh_visuals() -> void:
 	_scaffold.visible = not done
 	_label.visible = not done
 	_label.text = "%d%%" % int(progress * 100.0)
+	_health_bar.visible = done and health < definition.max_health
+	_health_bar.set_fraction(health / maxf(definition.max_health, 1.0))
