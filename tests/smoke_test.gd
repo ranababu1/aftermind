@@ -39,6 +39,7 @@ func _run() -> void:
 	await _check_worker_construction()
 	await _check_energy_wells()
 	await _check_structure_selection()
+	await _check_production()
 	if _failures.is_empty():
 		print("SMOKE TEST PASSED")
 		quit(0)
@@ -482,5 +483,72 @@ func _check_structure_selection() -> void:
 		pass
 	_expect(built != null and not built.cancel_construction(), "a finished building cannot be cancelled")
 	_expect(built != null and Hud.structure_status(built).contains("Energy/min"), "info shows the reactor's output")
+	skirmish.queue_free()
+	await process_frame
+
+
+func _check_production() -> void:
+	var skirmish: Node = await _spawn_skirmish()
+	var economy := skirmish.get_node("PlayerEconomy") as Economy
+	var service := skirmish.get_node("ConstructionService") as ConstructionService
+	var map := skirmish.get_node("Battlefield/Map") as MapBuilder
+	var units_root := skirmish.get_node("Units") as Node3D
+	var bay_def := load("res://data/buildings/fabrication_bay.tres") as BuildingDefinition
+	var rifle := load("res://data/units/rifle.tres") as UnitDefinition
+	economy.add(Economy.SCRAP, 2000)
+	economy.add(Economy.ENERGY, 500)
+	var spot: Variant = _find_open_spot(service, bay_def, map.definition.player_start)
+	_expect(spot != null, "open spot for a fabrication bay")
+	if spot == null:
+		skirmish.queue_free()
+		return
+	var bay := service.place(bay_def, spot, economy, &"remnants")
+	_expect(bay != null and bay.production == null, "an unfinished bay cannot produce")
+	while bay != null and not bay.add_build_work(1.0):
+		pass
+	var queue := bay.production if bay != null else null
+	_expect(queue != null, "a finished bay has a production queue")
+	if queue == null:
+		skirmish.queue_free()
+		return
+	queue.set_process(false)
+	var scrap := economy.amount(Economy.SCRAP)
+	_expect(queue.enqueue(rifle), "a rifle unit can be queued")
+	_expect(economy.amount(Economy.SCRAP) == scrap - rifle.cost_scrap, "queuing pays the unit cost")
+	for i in ProductionQueue.MAX_ORDERS - 1:
+		queue.enqueue(rifle)
+	_expect(not queue.enqueue(rifle), "the queue refuses orders past its limit")
+	_expect(economy.amount(Economy.SCRAP) == scrap - rifle.cost_scrap * ProductionQueue.MAX_ORDERS, "a refused order costs nothing")
+	_expect(queue.cancel_last(), "the newest order can be cancelled")
+	_expect(economy.amount(Economy.SCRAP) == scrap - rifle.cost_scrap * (ProductionQueue.MAX_ORDERS - 1), "cancelling refunds in full")
+	while queue.orders.size() > 1:
+		queue.cancel_last()
+	# Block every exit with a parked unit: the finished rifle must wait.
+	var blockers: Array[Unit] = []
+	for point in queue.exit_points():
+		var blocker := Unit.new()
+		blocker.definition = rifle
+		blocker.position = NavigationServer3D.map_get_closest_point(map.navigation_map(), point)
+		units_root.add_child(blocker)
+		blockers.append(blocker)
+	var before := units_root.get_child_count()
+	queue.progress = rifle.build_seconds
+	queue.set_process(true)
+	for i in 30:
+		await physics_frame
+	_expect(queue.blocked and units_root.get_child_count() == before, "a finished unit waits while every exit is blocked")
+	for blocker in blockers:
+		blocker.queue_free()
+	var deadline := Time.get_ticks_msec() + int(BACKGROUND_WAIT_SECONDS * 1000.0)
+	while not queue.orders.is_empty() and Time.get_ticks_msec() < deadline:
+		await physics_frame
+	_expect(queue.orders.is_empty() and not queue.blocked, "production resumes once an exit clears")
+	var produced: Unit = null
+	for node in units_root.get_children():
+		if node is Unit and not blockers.has(node) and String(node.name).begins_with(bay.name):
+			produced = node
+	_expect(produced != null and produced.definition == rifle, "the bay produced a rifle unit")
+	if produced != null:
+		_expect(_flat(produced.global_position, bay.global_position) > bay_def.footprint_radius, "the unit appears outside the building")
 	skirmish.queue_free()
 	await process_frame

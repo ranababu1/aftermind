@@ -109,6 +109,13 @@ layout_mode = 2
 size_flags_horizontal = 4
 script = ExtResource("4")
 
+[node name="ProductionRow" type="HBoxContainer" parent="Margin/Layout"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
 [node name="Gap" type="Control" parent="Margin/Layout"]
 custom_minimum_size = Vector2(0, 16)
 layout_mode = 2

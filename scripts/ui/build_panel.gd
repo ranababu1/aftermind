@@ -85,11 +85,16 @@ func _card(definition: BuildingDefinition) -> Button:
 
 
 static func _cost_text(definition: BuildingDefinition) -> String:
+	return cost_text(definition.cost())
+
+
+## "150 Scrap  ·  50 Energy" for a cost dictionary; zero amounts are omitted.
+static func cost_text(cost: Dictionary) -> String:
 	var parts: PackedStringArray = []
-	if definition.cost_scrap > 0:
-		parts.append("%d Scrap" % definition.cost_scrap)
-	if definition.cost_energy > 0:
-		parts.append("%d Energy" % definition.cost_energy)
+	if int(cost.get(Economy.SCRAP, 0)) > 0:
+		parts.append("%d Scrap" % int(cost[Economy.SCRAP]))
+	if int(cost.get(Economy.ENERGY, 0)) > 0:
+		parts.append("%d Energy" % int(cost[Economy.ENERGY]))
 	return "  ·  ".join(parts) if not parts.is_empty() else "Free"
 
 

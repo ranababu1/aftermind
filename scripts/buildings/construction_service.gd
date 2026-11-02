@@ -29,11 +29,13 @@ const BLOCKER_HEIGHT := 4.0
 
 var _map: MapBuilder
 var _root: Node3D
+var _units_root: Node3D
 
 
-func setup(map: MapBuilder, structures_root: Node3D) -> void:
+func setup(map: MapBuilder, structures_root: Node3D, units_root: Node3D = null) -> void:
 	_map = map
 	_root = structures_root
+	_units_root = units_root
 
 
 static func describe(problem: Problem) -> String:
@@ -77,6 +79,8 @@ func place(definition: BuildingDefinition, pos: Vector3, economy: Economy, facti
 	structure.definition = definition
 	structure.faction = faction
 	structure.economy = economy
+	structure.map = _map
+	structure.units_root = _units_root
 	structure.name = definition.display_name.to_pascal_case()
 	structure.position = Vector3(pos.x, 0.0, pos.z)
 	_root.add_child(structure)

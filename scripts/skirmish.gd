@@ -34,7 +34,7 @@ func _ready() -> void:
 	_camera.focus_on(definition.player_start + START_FOCUS_OFFSET)
 	_selection.setup(_camera.get_camera())
 	_commands.setup(_map)
-	_construction.setup(_map, $Structures)
+	_construction.setup(_map, $Structures, _units)
 	_placement.setup(_camera, _construction, _economy)
 	_hud.set_buildable(buildable)
 	_hud.building_chosen.connect(_on_building_chosen)
@@ -50,6 +50,8 @@ func _ready() -> void:
 	_selection.selection_changed.connect(_hud.show_selection)
 	_selection.structure_selection_changed.connect(_hud.show_structure)
 	_hud.cancel_construction_requested.connect(_on_cancel_construction)
+	_hud.produce_requested.connect(_on_produce_requested)
+	_hud.cancel_production_requested.connect(_on_cancel_production)
 	_add_player_drop_off(definition.player_start)
 	_camera.tapped.connect(_on_world_tapped)
 	_camera.long_pressed.connect(_on_world_long_pressed)
@@ -146,6 +148,18 @@ func _on_cancel_construction() -> void:
 	var structure := _selection.selected_structure()
 	if structure != null:
 		structure.cancel_construction()
+
+
+func _on_produce_requested(definition: UnitDefinition) -> void:
+	var structure := _selection.selected_structure()
+	if structure != null and structure.production != null:
+		structure.production.enqueue(definition)
+
+
+func _on_cancel_production() -> void:
+	var structure := _selection.selected_structure()
+	if structure != null and structure.production != null:
+		structure.production.cancel_last()
 
 
 func _on_world_long_pressed(screen_position: Vector2) -> void:

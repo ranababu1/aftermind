@@ -23,6 +23,11 @@ const CANCEL_REFUND := 0.75
 @export var faction: StringName = &"remnants"
 
 var economy: Economy
+## Set by ConstructionService; produced units are spawned under units_root.
+var map: MapBuilder
+var units_root: Node3D
+## Present once a producing building is complete.
+var production: ProductionQueue
 var health: float = 0.0
 var progress: float = 0.0
 var selected: bool = false:
@@ -180,6 +185,13 @@ func _complete() -> void:
 	energy_rate = energy_rate_at(get_tree(), definition, global_position)
 	if energy_rate > 0.0:
 		FloatingText.spawn(get_parent(), global_position + Vector3.UP * 7.5, "+%d Energy/min" % int(energy_rate), BuildingVisuals.ENERGY)
+	if not definition.produces.is_empty() and map != null and units_root != null:
+		production = ProductionQueue.new()
+		production.name = "Production"
+		production.structure = self
+		production.map = map
+		production.units_root = units_root
+		add_child(production)
 	if definition.is_drop_off:
 		var drop := DropOff.new()
 		drop.name = "DropOff"

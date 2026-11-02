@@ -8,3 +8,5 @@ unit_id = &"rifle"
 display_name = "Rifle Unit"
 move_speed = 5.8
 radius = 0.7
+cost_scrap = 50
+build_seconds = 10.0

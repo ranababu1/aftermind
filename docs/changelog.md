@@ -231,3 +231,45 @@ A construction site can be cancelled from the chip ("Cancel Build +90"), which r
 **Known limitations:**
 - Finished buildings have no actions yet; the Fabrication Bay queue comes next.
 - Not yet run on a physical phone.
+
+## v0.3.2 — 2026-11-03 — Fabrication Bay production queue
+**Summary:** A finished Fabrication Bay now produces Rifle Units. Select the bay to see a production row:
+- a **Rifle Unit · 50 Scrap** button;
+- a queue chip (QUEUE n / 5, the current unit with percent and a progress bar);
+- **Cancel Last**.
+
+An order is paid when queued and refunded in full if cancelled. Units are built one at a time (10 s each) and walk out on the side facing the map center.
+
+**Spawn-point recovery (M3 exit criterion):**
+- Twelve exit points around the bay are checked in turn.
+- A point must be on walkable ground and free of units.
+- If every exit is blocked, the finished unit waits: "Exit blocked" appears and the queue chip turns red. It retries every half second and leaves as soon as one exit clears.
+
+**Changed:**
+- `UnitDefinition` gained production data (cost and build time).
+- `BuildingDefinition` gained `produces`.
+- Rifle: 50 Scrap, 10 s. Worker: 50 Scrap, 12 s (for later Nexus production).
+
+**Key files/systems:**
+- `scripts/buildings/production_queue.gd` (new).
+- `structure.gd` (creates the queue on completion).
+- `construction_service.gd` (passes the map and units root).
+- `hud.gd` and `hud.tscn` (production row).
+- `build_panel.gd` (shared `cost_text`).
+- `skirmish.gd`.
+- `data/units/*.tres`, `data/buildings/fabrication_bay.tres`.
+
+**Tests/checks:** new production scenario:
+- unfinished bays can't produce;
+- queuing pays the cost;
+- the 5-order limit refuses extra orders at no cost;
+- cancel refunds in full;
+- with every exit blocked, a finished unit waits, then leaves once the exits clear;
+- the produced unit appears outside the building.
+
+Full suite passes.
+
+**Known limitations:**
+- Only Rifle Units for now. Heavy, Scout Drone and Siege Walker come with combat.
+- No rally point yet.
+- The Command Nexus cannot train Workers yet.

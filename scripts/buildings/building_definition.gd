@@ -19,6 +19,8 @@ extends Resource
 @export var energy_per_minute: int = 0
 ## Energy multiplier when completed next to an Energy Well.
 @export var energy_well_multiplier: float = 1.0
+## Units this building can produce once complete.
+@export var produces: Array[UnitDefinition] = []
 
 
 func cost() -> Dictionary:

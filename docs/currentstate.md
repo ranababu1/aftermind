@@ -1,9 +1,9 @@
 # AFTERMIND — Current State
 
-_Last updated: 2026-11-03 — version 0.3.1_
+_Last updated: 2026-11-03 — version 0.3.2_
 
 ## Milestone
-**M3: Production and combat — in progress (v0.3.1: building selection).** M2 (economy and construction) is complete.
+**M3: Production and combat — in progress (v0.3.1: building selection; v0.3.2: production queue).** M2 (economy and construction) is complete.
 - M2 exit criteria, all covered by tests:
   - resources cannot go negative;
   - invalid placement is rejected with a clear reason;
@@ -38,6 +38,7 @@ _Last updated: 2026-11-03 — version 0.3.1_
 - `scripts/economy/`: `economy.gd` (atomic stockpile), `resource_node.gd`, `drop_off.gd`, `energy_well.gd`.
 - `scripts/buildings/`:
   - `building_definition.gd`;
+  - `production_queue.gd` (unit orders, exit-point recovery);
   - `structure.gd` (construction, health, repair, damage, roles; tap body on layer 3);
   - `construction_service.gd` (placement rules, cost, spawn, re-bake);
   - `placement_controller.gd` (ghost placement mode).
@@ -74,14 +75,14 @@ _Last updated: 2026-11-03 — version 0.3.1_
 - **Buildings:**
   - Salvage Depot: drop-off.
   - Power Reactor: 60 Energy/min, or 120 beside an Energy Well.
-  - Fabrication Bay: placeholder role until M3.
+  - Fabrication Bay: produces Rifle Units through a 5-order queue (paid on queue, full refund on cancel). Finished units wait for a clear exit ("Exit blocked") and leave once one frees up.
   - Research Lab: placeholder role until M5.
   - All can take damage and be destroyed; navigation updates either way.
 - **Building selection:** tap a building for a ring and an info chip (progress or health bar, role). Cancel Build removes a construction site and refunds 75%.
 
 ## Not implemented
 - Drag-box selection (hold-to-add is the mobile multi-select).
-- M3: production queue, unit roster, combat, health bars.
+- M3: remaining unit roster, combat, health bars, rally points.
 - M4: enemy AI, victory and defeat.
 - M5: AI Core and Evolution, tutorial, audio.
 - M6: release.
@@ -122,6 +123,7 @@ _Last updated: 2026-11-03 — version 0.3.1_
 12. Try to build with too little Scrap: the card says "Need …", the bar says "Not enough resources", and the Scrap chip flashes red on attempts.
 13. HUD buttons never issue world orders; Cancel leaves placement mode.
 14. With nothing selected, tap a building: ring and info chip. On a construction site, Cancel Build refunds 75% and removes it.
+15. Select a finished Fabrication Bay: Rifle Unit (50 Scrap) queues with a progress bar, Cancel Last refunds, and the unit walks out of the bay.
 
 ## Last verified (2026-11-03, v0.2.5 / v0.3.0)
 - Tests PASSED, covering:
@@ -150,6 +152,6 @@ _Last updated: 2026-11-03 — version 0.3.1_
 1. Install v0.3.0 on both phones and run checklist steps 1–13 (especially pinch zoom and how placement feels on a real screen).
 2. Start M3 in small releases:
    - ~~building selection with an info panel~~ (done in v0.3.1);
-   - Fabrication Bay production queue (data-driven costs and times, spawn-point recovery);
+   - ~~Fabrication Bay production queue~~ (done in v0.3.2);
    - unit health, targeting, damage and death for the initial roster (Rifle, Heavy, Scout Drone, Siege Walker);
    - health bars and combat feedback.

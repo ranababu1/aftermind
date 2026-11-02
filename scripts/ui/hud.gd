@@ -9,6 +9,8 @@ signal building_chosen(definition: BuildingDefinition)
 signal placement_confirmed
 signal placement_cancelled
 signal cancel_construction_requested
+signal produce_requested(definition: UnitDefinition)
+signal cancel_production_requested
 
 const PLACEMENT_OK_COLOR := Color(0.55, 1.0, 0.6)
 const PLACEMENT_BAD_COLOR := Color(1.0, 0.45, 0.4)
@@ -29,6 +31,7 @@ const HEALTH_TRACK_COLOR := Color(1, 1, 1, 0.12)
 @onready var _structure_status: Label = %StructureStatus
 @onready var _structure_health: ProgressBar = %StructureHealth
 @onready var _cancel_build_button: Button = %CancelBuildButton
+@onready var _production_row: HBoxContainer = %ProductionRow
 @onready var _clear_button: Button = %ClearButton
 @onready var _all_button: Button = %AllButton
 @onready var _build_button: Button = %BuildButton
@@ -65,6 +68,12 @@ func _ready() -> void:
 var _economy: Economy
 var _buildable: Array[BuildingDefinition] = []
 var _structure: Structure
+var _queue: ProductionQueue
+var _produce_buttons: Array[Button] = []
+var _queue_title: Label
+var _queue_status: Label
+var _queue_bar: ProgressBar
+var _cancel_order_button: Button
 
 
 func bind_economy(economy: Economy) -> void:
@@ -147,12 +156,86 @@ func show_structure(structure: Structure) -> void:
 		_structure.health_changed.connect(_on_structure_changed)
 		_structure.completed.connect(_on_structure_changed)
 	_structure_chip.visible = _structure != null
+	_bind_production()
 	_clear_button.visible = _structure != null or _selection_chip.visible
 	_refresh_structure()
 
 
 func _on_structure_changed(_changed: Structure) -> void:
+	if _structure != null and _structure.production != _queue:
+		_bind_production()
 	_refresh_structure()
+
+
+## Rebuilds the production row for the selected structure's queue.
+func _bind_production() -> void:
+	if is_instance_valid(_queue) and _queue.changed.is_connected(_refresh_production):
+		_queue.changed.disconnect(_refresh_production)
+	_queue = _structure.production if _structure != null else null
+	for child in _production_row.get_children():
+		child.queue_free()
+	_produce_buttons.clear()
+	_production_row.visible = _queue != null
+	if _queue == null:
+		return
+	_queue.changed.connect(_refresh_production)
+	for definition in _structure.definition.produces:
+		var button := Button.new()
+		button.custom_minimum_size = Vector2(260, 104)
+		button.text = "%s\n%s" % [definition.display_name, BuildPanel.cost_text(definition.cost())]
+		button.pressed.connect(func() -> void: produce_requested.emit(definition))
+		_production_row.add_child(button)
+		_produce_buttons.append(button)
+	var chip := PanelContainer.new()
+	chip.theme_type_variation = &"ChipPanel"
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	chip.custom_minimum_size = Vector2(300, 0)
+	_production_row.add_child(chip)
+	var rows := VBoxContainer.new()
+	rows.add_theme_constant_override("separation", 0)
+	chip.add_child(rows)
+	_queue_title = Label.new()
+	_queue_title.theme_type_variation = &"AccentLabel"
+	_queue_title.add_theme_font_size_override("font_size", 20)
+	rows.add_child(_queue_title)
+	_queue_status = Label.new()
+	_queue_status.add_theme_font_size_override("font_size", 28)
+	rows.add_child(_queue_status)
+	_queue_bar = ProgressBar.new()
+	_queue_bar.custom_minimum_size = Vector2(0, 10)
+	_queue_bar.max_value = 1.0
+	_queue_bar.step = 0.0
+	_queue_bar.show_percentage = false
+	_queue_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_style_health_bar(_queue_bar)
+	rows.add_child(_queue_bar)
+	_cancel_order_button = Button.new()
+	_cancel_order_button.custom_minimum_size = Vector2(0, 104)
+	_cancel_order_button.text = "Cancel Last"
+	_cancel_order_button.pressed.connect(cancel_production_requested.emit)
+	_production_row.add_child(_cancel_order_button)
+	_refresh_production()
+
+
+func _refresh_production() -> void:
+	if _queue == null or _queue_title == null:
+		return
+	var count := _queue.orders.size()
+	_queue_title.text = "QUEUE %d / %d" % [count, ProductionQueue.MAX_ORDERS]
+	_queue_bar.value = _queue.front_fraction()
+	_cancel_order_button.visible = count > 0
+	for button in _produce_buttons:
+		button.disabled = not _queue.can_enqueue()
+	if count == 0:
+		_queue_status.text = "Idle"
+		_queue_status.remove_theme_color_override("font_color")
+	elif _queue.blocked:
+		_queue_status.text = "Exit blocked"
+		_queue_status.add_theme_color_override("font_color", PLACEMENT_BAD_COLOR)
+	else:
+		_queue_status.text = "%s  %d%%" % [_queue.orders[0].display_name, int(_queue.front_fraction() * 100.0)]
+		_queue_status.remove_theme_color_override("font_color")
 
 
 func _refresh_structure() -> void:
