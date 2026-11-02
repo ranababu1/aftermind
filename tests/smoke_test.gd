@@ -35,6 +35,7 @@ func _run() -> void:
 	await _check_gathering()
 	await _check_construction()
 	await _check_worker_construction()
+	await _check_energy_wells()
 	if _failures.is_empty():
 		print("SMOKE TEST PASSED")
 		quit(0)
@@ -403,5 +404,36 @@ func _check_worker_construction() -> void:
 		frames += 1
 	_expect(workers.all(func(w: Unit) -> bool: return w.job == null), "repair stops when scrap runs out")
 	_expect(economy.amount(Economy.SCRAP) >= 0, "scrap never goes negative during repair")
+	skirmish.queue_free()
+	await process_frame
+
+
+func _check_energy_wells() -> void:
+	var skirmish: Node = await _spawn_skirmish()
+	var economy := skirmish.get_node("PlayerEconomy") as Economy
+	var service := skirmish.get_node("ConstructionService") as ConstructionService
+	var map := skirmish.get_node("Battlefield/Map") as MapBuilder
+	var reactor := load("res://data/buildings/power_reactor.tres") as BuildingDefinition
+	var well_pos: Vector3 = map.definition.energy_sites[0]
+	economy.add(Economy.SCRAP, 2000)
+	_expect(service.check_placement(reactor, well_pos) == ConstructionService.Problem.ON_ENERGY_WELL, "cannot build on an energy well")
+	var near: Variant = null
+	for step in 16:
+		var a := TAU * step / 16.0
+		var pos := well_pos + Vector3(cos(a), 0, sin(a)) * (EnergyWell.BONUS_RADIUS - 1.0)
+		if service.check_placement(reactor, pos) == ConstructionService.Problem.NONE:
+			near = pos
+			break
+	_expect(near != null, "there is room for a reactor beside the energy well")
+	var far: Variant = _find_open_spot(service, reactor, map.definition.player_start)
+	if near == null or far == null:
+		skirmish.queue_free()
+		return
+	_expect(is_equal_approx(Structure.energy_rate_at(self, reactor, near), reactor.energy_per_minute * reactor.energy_well_multiplier), "reactor beside a well gets the bonus")
+	_expect(is_equal_approx(Structure.energy_rate_at(self, reactor, far), float(reactor.energy_per_minute)), "reactor away from wells gets the base rate")
+	var bonus_site := service.place(reactor, near, economy, &"remnants")
+	while bonus_site != null and not bonus_site.add_build_work(1.0):
+		pass
+	_expect(bonus_site != null and is_equal_approx(bonus_site.energy_rate, reactor.energy_per_minute * reactor.energy_well_multiplier), "finished reactor beside a well produces double")
 	skirmish.queue_free()
 	await process_frame

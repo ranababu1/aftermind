@@ -6,9 +6,10 @@
 script = ExtResource("1")
 building_id = &"power_reactor"
 display_name = "Power Reactor"
-summary = "Generates 60 Energy per minute."
+summary = "60 Energy per minute. Doubled next to an Energy Well."
 cost_scrap = 150
 max_health = 500
 build_seconds = 22.0
 footprint_radius = 3.0
 energy_per_minute = 60
+energy_well_multiplier = 2.0

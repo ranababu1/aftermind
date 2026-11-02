@@ -5,7 +5,7 @@ extends Node3D
 ## then confirms or cancels. Validity is re-checked as it moves and the ghost
 ## turns green or red.
 
-signal state_changed(definition: BuildingDefinition, problem: ConstructionService.Problem)
+signal state_changed(definition: BuildingDefinition, problem: ConstructionService.Problem, energy_rate: float)
 signal finished
 
 const RECHECK_INTERVAL := 0.1
@@ -24,6 +24,7 @@ var _economy: Economy
 var _ghost: Node3D
 var _timer: float = 0.0
 var _tint_valid: int = -1
+var _energy_rate: float = 0.0
 
 
 func setup(camera: RtsCamera, service: ConstructionService, economy: Economy) -> void:
@@ -47,7 +48,7 @@ func begin(new_definition: BuildingDefinition) -> void:
 	_tint_valid = -1
 	_follow_screen_center()
 	_recheck()
-	state_changed.emit(definition, problem)
+	state_changed.emit(definition, problem, _energy_rate)
 
 
 func cancel() -> void:
@@ -112,9 +113,11 @@ func _recheck() -> void:
 	if valid != _tint_valid:
 		_tint_valid = valid
 		_tint(_ghost, VALID_COLOR if valid == 1 else INVALID_COLOR)
-	if next != problem:
+	var rate := Structure.energy_rate_at(get_tree(), definition, _ghost.global_position)
+	if next != problem or not is_equal_approx(rate, _energy_rate):
 		problem = next
-		state_changed.emit(definition, problem)
+		_energy_rate = rate
+		state_changed.emit(definition, problem, _energy_rate)
 
 
 func _tint(node: Node, color: Color) -> void:

@@ -64,7 +64,10 @@ func build() -> void:
 		deposit.set_visual(MapProps.scrap_pile(rng))
 		_place(deposit, site, self)
 	for site in definition.energy_sites:
-		_place(MapProps.energy_well(), site, self)
+		var well := EnergyWell.new()
+		well.name = "EnergyWell"
+		well.add_child(MapProps.energy_well())
+		_place(well, site, self)
 	var core := _place(MapProps.ai_core(), definition.core_site, _nav_region)
 	_add_round_blocker(core, CORE_BLOCK_RADIUS, 2.0)
 	var player_nexus := _place(MapProps.remnant_nexus(), definition.player_start, _nav_region)

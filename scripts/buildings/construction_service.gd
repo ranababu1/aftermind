@@ -5,7 +5,7 @@ extends Node
 
 signal structure_placed(structure: Structure)
 
-enum Problem { NONE, OUT_OF_BOUNDS, BLOCKED, OVERLAPS_BUILDING, TOO_CLOSE_TO_DEPOSIT, UNITS_IN_THE_WAY, CANNOT_AFFORD }
+enum Problem { NONE, OUT_OF_BOUNDS, BLOCKED, OVERLAPS_BUILDING, TOO_CLOSE_TO_DEPOSIT, UNITS_IN_THE_WAY, CANNOT_AFFORD, ON_ENERGY_WELL }
 
 const PROBLEM_TEXT := {
 	Problem.NONE: "",
@@ -15,6 +15,7 @@ const PROBLEM_TEXT := {
 	Problem.TOO_CLOSE_TO_DEPOSIT: "Too close to a deposit",
 	Problem.UNITS_IN_THE_WAY: "Units in the way",
 	Problem.CANNOT_AFFORD: "Not enough resources",
+	Problem.ON_ENERGY_WELL: "Build beside the well, not on it",
 }
 ## Keep buildings this far inside the playable edge.
 const EDGE_MARGIN := 4.0
@@ -53,6 +54,9 @@ func check_placement(definition: BuildingDefinition, pos: Vector3, economy: Econ
 	for node in get_tree().get_nodes_in_group(ResourceNode.GROUP):
 		if _flat((node as Node3D).global_position, pos) < r + DEPOSIT_CLEARANCE:
 			return Problem.TOO_CLOSE_TO_DEPOSIT
+	for node in get_tree().get_nodes_in_group(EnergyWell.GROUP):
+		if _flat((node as Node3D).global_position, pos) < r + EnergyWell.PAD_RADIUS + STRUCTURE_GAP:
+			return Problem.ON_ENERGY_WELL
 	for node in get_tree().get_nodes_in_group(Unit.GROUP):
 		var unit := node as Unit
 		if unit != null and _flat(unit.global_position, pos) < r + unit.definition.radius:

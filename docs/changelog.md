@@ -159,3 +159,18 @@
 **Known limitations:**
 - Buildings can't be selected for info yet.
 - There is no way to cancel a construction site.
+
+## v0.2.5 — 2026-11-03 — Energy Wells
+**Summary:** The two glowing green Energy Wells are now worth fighting over. A Power Reactor built beside one produces **120** Energy per minute instead of 60. When you place a Reactor near a well, the placement bar says "Energy Well bonus: 120 Energy/min". When the Reactor finishes, a "+120 Energy/min" popup confirms it. You can't build on the well itself ("Build beside the well, not on it").
+
+**Added:**
+- `EnergyWell`: a map point with a 10 m bonus radius and a protected pad.
+- `energy_well_multiplier` in building data (2.0 for the Power Reactor).
+- Structures record their Energy rate on completion.
+- Placement shows the bonus; completion popup shows the rate.
+
+**Tests/checks:**
+- New scenarios pass: building on a well is refused; there is room beside a well; the bonus rate applies near a well and the base rate away from it; a finished Reactor beside a well produces double.
+- Release build installs and launches into a skirmish on the Pixel 10 Pro AVD with no errors. The well-bonus text itself was checked by test, not on screen.
+
+**Known limitations:** The Energy Wells are not yet contested, since there is no enemy (M4).

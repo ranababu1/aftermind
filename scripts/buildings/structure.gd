@@ -28,6 +28,8 @@ var _model: Node3D
 var _scaffold: Node3D
 var _label: Label3D
 var _energy_carry: float = 0.0
+## Energy per minute once complete (includes any Energy Well bonus).
+var energy_rate: float = 0.0
 
 
 func _ready() -> void:
@@ -95,9 +97,9 @@ func take_damage(amount: float) -> void:
 
 
 func _process(delta: float) -> void:
-	if not is_complete() or definition.energy_per_minute <= 0 or economy == null:
+	if energy_rate <= 0.0 or economy == null:
 		return
-	_energy_carry += definition.energy_per_minute * delta / 60.0
+	_energy_carry += energy_rate * delta / 60.0
 	if _energy_carry >= 1.0:
 		var whole := int(_energy_carry)
 		_energy_carry -= whole
@@ -125,7 +127,18 @@ static func from_collider(collider: Object) -> Structure:
 	return node.get_parent() as Structure if node != null else null
 
 
+## Energy per minute a finished `definition` would produce at `pos`.
+static func energy_rate_at(tree: SceneTree, definition: BuildingDefinition, pos: Vector3) -> float:
+	if definition.energy_per_minute <= 0:
+		return 0.0
+	var multiplier := definition.energy_well_multiplier if EnergyWell.covering(tree, pos) != null else 1.0
+	return definition.energy_per_minute * multiplier
+
+
 func _complete() -> void:
+	energy_rate = energy_rate_at(get_tree(), definition, global_position)
+	if energy_rate > 0.0:
+		FloatingText.spawn(get_parent(), global_position + Vector3.UP * 7.5, "+%d Energy/min" % int(energy_rate), BuildingVisuals.ENERGY)
 	if definition.is_drop_off:
 		var drop := DropOff.new()
 		drop.name = "DropOff"

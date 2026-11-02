@@ -17,6 +17,8 @@ extends Resource
 @export var is_drop_off: bool = false
 ## Energy produced per minute once complete.
 @export var energy_per_minute: int = 0
+## Energy multiplier when completed next to an Energy Well.
+@export var energy_well_multiplier: float = 1.0
 
 
 func cost() -> Dictionary:

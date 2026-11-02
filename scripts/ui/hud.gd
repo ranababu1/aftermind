@@ -75,9 +75,11 @@ func begin_placement(definition: BuildingDefinition) -> void:
 	_placement_title.text = "PLACE %s" % definition.display_name.to_upper()
 
 
-func show_placement_state(_definition: BuildingDefinition, problem: ConstructionService.Problem) -> void:
+func show_placement_state(definition: BuildingDefinition, problem: ConstructionService.Problem, energy_rate: float) -> void:
 	var ok := problem == ConstructionService.Problem.NONE
 	_placement_status.text = "Pan or tap to position" if ok else ConstructionService.describe(problem)
+	if ok and energy_rate > definition.energy_per_minute:
+		_placement_status.text = "Energy Well bonus: %d Energy/min" % int(energy_rate)
 	_placement_status.add_theme_color_override("font_color", PLACEMENT_OK_COLOR if ok else PLACEMENT_BAD_COLOR)
 	_confirm_button.disabled = not ok
 
