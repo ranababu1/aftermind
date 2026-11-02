@@ -100,7 +100,7 @@ theme_type_variation = &"ChipPanel"
 [node name="HintLabel" type="Label" parent="Margin/Layout/Hint"]
 layout_mode = 2
 theme_type_variation = &"MutedLabel"
-text = "Tap a unit to select  ·  Hold to add  ·  Tap ground to move  ·  Drag to pan  ·  Pinch to zoom"
+text = "Tap a unit or building to select  ·  Hold to add  ·  Tap ground to move  ·  Drag to pan  ·  Pinch to zoom"
 
 [node name="BuildPanel" type="PanelContainer" parent="Margin/Layout"]
 unique_name_in_owner = true
@@ -143,11 +143,52 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = ""
 
+[node name="StructureChip" type="PanelContainer" parent="Margin/Layout/BottomBar"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_type_variation = &"ChipPanel"
+
+[node name="Rows" type="VBoxContainer" parent="Margin/Layout/BottomBar/StructureChip"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="StructureName" type="Label" parent="Margin/Layout/BottomBar/StructureChip/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"AccentLabel"
+theme_override_font_sizes/font_size = 20
+text = "BUILDING"
+
+[node name="StructureStatus" type="Label" parent="Margin/Layout/BottomBar/StructureChip/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = ""
+
+[node name="StructureHealth" type="ProgressBar" parent="Margin/Layout/BottomBar/StructureChip/Rows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+mouse_filter = 2
+max_value = 1.0
+step = 0.0
+show_percentage = false
+
 [node name="ClearButton" type="Button" parent="Margin/Layout/BottomBar"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 104)
 layout_mode = 2
 text = "Clear"
+
+[node name="CancelBuildButton" type="Button" parent="Margin/Layout/BottomBar"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 104)
+layout_mode = 2
+text = "Cancel Build"
 
 [node name="BuildButton" type="Button" parent="Margin/Layout/BottomBar"]
 unique_name_in_owner = true

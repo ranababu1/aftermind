@@ -10,6 +10,7 @@ const RUST := Color(0.5, 0.29, 0.15)
 const ACCENT := Color(0.25, 0.82, 0.88)
 const ENERGY := Color(0.55, 1.0, 0.45)
 const SCAFFOLD := Color(0.35, 0.95, 1.0)
+const REFUND := Color(1.0, 0.78, 0.4)
 
 
 static func build(building_id: StringName, radius: float) -> Node3D:
@@ -24,6 +25,16 @@ static func build(building_id: StringName, radius: float) -> Node3D:
 			return _research_lab(radius)
 	push_warning("BuildingVisuals: no model for '%s'" % building_id)
 	return _salvage_depot(radius)
+
+
+## Ground ring shown around the selected structure.
+static func selection_ring(radius: float) -> Node3D:
+	var ring := TorusMesh.new()
+	ring.inner_radius = radius + 0.35
+	ring.outer_radius = radius + 0.7
+	ring.rings = 64
+	ring.ring_segments = 4
+	return MeshKit.instance(ring, MeshKit.translucent(UnitVisuals.SELECTION_COLOR, 0.9), Vector3(0, 0.08, 0))
 
 
 ## Translucent footprint volume shown around a structure under construction.

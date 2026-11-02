@@ -208,3 +208,26 @@ The game code was fine. Both tests are fixed (background waits are now budgeted 
 **Known limitations:**
 - Not yet run on a physical phone; pinch zoom untested.
 - No performance measurements yet.
+
+## v0.3.1 — 2026-11-03 — Building selection and info panel
+**Summary:** First M3 step. Tap any building to select it:
+- a cyan ring appears around it;
+- an info chip shows its name, construction progress or health with a bar, and its role ("+120 Energy/min", "Scrap drop-off").
+
+A construction site can be cancelled from the chip ("Cancel Build +90"), which removes it and refunds 75% of its cost.
+
+**Changed:**
+- Selection holds either a group of units or one building, never both; selecting one clears the other.
+- Tapping a building with Workers selected still builds or repairs it when it needs work; otherwise the tap selects the building (it used to show a red cross).
+- Tapping empty ground with only a building selected clears the selection.
+- Control hint now mentions buildings.
+
+**Key files/systems:** `scripts/buildings/structure.gd` (`selected`, `cancel_construction`, `cancel_refund`), `scripts/control/selection_controller.gd` (`select_structure`, `structure_selection_changed`), `scripts/ui/hud.gd` and `scenes/ui/hud.tscn` (structure chip, Cancel Build), `scripts/skirmish.gd` (tap routing), `scripts/visual/building_visuals.gd` (selection ring).
+
+**Tests/checks:**
+- New scenario: selection exclusivity, info text, a 75% refund on cancel, a cancelled site leaving the selection, and finished buildings refusing cancel. Full suite passes.
+- Pixel 10 Pro AVD (release build): placed a Salvage Depot (Scrap 300 → 180), tapped it: ring plus "Building 0% · 60 / 600 HP"; Cancel Build: Scrap → 270 with a "+90 Scrap" popup and the chip cleared.
+
+**Known limitations:**
+- Finished buildings have no actions yet; the Fabrication Bay queue comes next.
+- Not yet run on a physical phone.

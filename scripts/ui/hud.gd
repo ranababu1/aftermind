@@ -8,9 +8,12 @@ signal clear_selection_requested
 signal building_chosen(definition: BuildingDefinition)
 signal placement_confirmed
 signal placement_cancelled
+signal cancel_construction_requested
 
 const PLACEMENT_OK_COLOR := Color(0.55, 1.0, 0.6)
 const PLACEMENT_BAD_COLOR := Color(1.0, 0.45, 0.4)
+const HEALTH_FILL_COLOR := Color(0.35, 0.95, 1.0)
+const HEALTH_TRACK_COLOR := Color(1, 1, 1, 0.12)
 
 ## Seconds the control hint stays fully visible before fading out.
 @export var hint_duration: float = 8.0
@@ -21,6 +24,11 @@ const PLACEMENT_BAD_COLOR := Color(1.0, 0.45, 0.4)
 @onready var _selection_chip: Control = %SelectionChip
 @onready var _selection_count: Label = %SelectionCount
 @onready var _selection_detail: Label = %SelectionDetail
+@onready var _structure_chip: Control = %StructureChip
+@onready var _structure_name: Label = %StructureName
+@onready var _structure_status: Label = %StructureStatus
+@onready var _structure_health: ProgressBar = %StructureHealth
+@onready var _cancel_build_button: Button = %CancelBuildButton
 @onready var _clear_button: Button = %ClearButton
 @onready var _all_button: Button = %AllButton
 @onready var _build_button: Button = %BuildButton
@@ -46,6 +54,8 @@ func _ready() -> void:
 	_build_panel.building_chosen.connect(_on_building_chosen)
 	_confirm_button.pressed.connect(placement_confirmed.emit)
 	_cancel_button.pressed.connect(placement_cancelled.emit)
+	_cancel_build_button.pressed.connect(cancel_construction_requested.emit)
+	_style_health_bar(_structure_health)
 	show_selection([])
 	var tween := create_tween()
 	tween.tween_interval(hint_duration)
@@ -54,6 +64,7 @@ func _ready() -> void:
 
 var _economy: Economy
 var _buildable: Array[BuildingDefinition] = []
+var _structure: Structure
 
 
 func bind_economy(economy: Economy) -> void:
@@ -109,7 +120,7 @@ func set_map_name(map_name: String) -> void:
 func show_selection(units: Array[Unit]) -> void:
 	var has_units := not units.is_empty()
 	_selection_chip.visible = has_units
-	_clear_button.visible = has_units
+	_clear_button.visible = has_units or _structure != null
 	var has_builders := units.any(func(u: Unit) -> bool: return u.definition.can_gather)
 	_build_button.visible = has_builders
 	if not has_builders:
@@ -125,6 +136,60 @@ func show_selection(units: Array[Unit]) -> void:
 	for unit_name in counts:
 		parts.append("%s ×%d" % [unit_name, counts[unit_name]])
 	_selection_detail.text = "  ·  ".join(parts)
+
+
+func show_structure(structure: Structure) -> void:
+	if is_instance_valid(_structure):
+		_structure.health_changed.disconnect(_on_structure_changed)
+		_structure.completed.disconnect(_on_structure_changed)
+	_structure = structure
+	if _structure != null:
+		_structure.health_changed.connect(_on_structure_changed)
+		_structure.completed.connect(_on_structure_changed)
+	_structure_chip.visible = _structure != null
+	_clear_button.visible = _structure != null or _selection_chip.visible
+	_refresh_structure()
+
+
+func _on_structure_changed(_changed: Structure) -> void:
+	_refresh_structure()
+
+
+func _refresh_structure() -> void:
+	var building := _structure != null and not _structure.is_complete()
+	_cancel_build_button.visible = building
+	if _structure == null:
+		return
+	var definition := _structure.definition
+	_structure_name.text = definition.display_name.to_upper()
+	_structure_health.value = _structure.health / definition.max_health
+	_structure_status.text = Hud.structure_status(_structure)
+	if building:
+		var refund := _structure.cancel_refund()
+		_cancel_build_button.text = "Cancel Build  +%d" % int(refund.get(Economy.SCRAP, 0))
+
+
+static func _style_health_bar(bar: ProgressBar) -> void:
+	for part in [["background", HEALTH_TRACK_COLOR], ["fill", HEALTH_FILL_COLOR]]:
+		var box := StyleBoxFlat.new()
+		box.bg_color = part[1]
+		box.set_corner_radius_all(5)
+		bar.add_theme_stylebox_override(part[0], box)
+
+
+## One-line status for the info chip: progress or health, then the role.
+static func structure_status(structure: Structure) -> String:
+	var definition := structure.definition
+	var parts: PackedStringArray = []
+	if not structure.is_complete():
+		parts.append("Building %d%%" % int(structure.progress * 100.0))
+	parts.append("%d / %d HP" % [ceili(structure.health), definition.max_health])
+	if structure.is_complete():
+		if structure.energy_rate > 0.0:
+			parts.append("+%d Energy/min" % int(structure.energy_rate))
+		elif definition.is_drop_off:
+			parts.append("Scrap drop-off")
+	return "  ·  ".join(parts)
 
 
 func _on_resource_changed(resource: StringName, amount: int) -> void:

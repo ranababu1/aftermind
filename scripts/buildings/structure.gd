@@ -16,6 +16,8 @@ const LABEL_HEIGHT := 6.5
 ## Physics layer used only to detect taps on structures.
 const PICK_LAYER := 3
 const PICK_HEIGHT := 5.0
+## Share of the cost returned when a construction site is cancelled.
+const CANCEL_REFUND := 0.75
 
 @export var definition: BuildingDefinition
 @export var faction: StringName = &"remnants"
@@ -23,10 +25,16 @@ const PICK_HEIGHT := 5.0
 var economy: Economy
 var health: float = 0.0
 var progress: float = 0.0
+var selected: bool = false:
+	set(value):
+		selected = value
+		if _selection_ring != null:
+			_selection_ring.visible = value
 
 var _model: Node3D
 var _scaffold: Node3D
 var _label: Label3D
+var _selection_ring: Node3D
 var _energy_carry: float = 0.0
 ## Energy per minute once complete (includes any Energy Well bonus).
 var energy_rate: float = 0.0
@@ -48,6 +56,9 @@ func _ready() -> void:
 	_label.modulate = BuildingVisuals.SCAFFOLD
 	_label.position = Vector3(0, LABEL_HEIGHT, 0)
 	add_child(_label)
+	_selection_ring = BuildingVisuals.selection_ring(definition.footprint_radius)
+	_selection_ring.visible = selected
+	add_child(_selection_ring)
 	_add_pick_body()
 	if health <= 0.0:
 		health = definition.max_health * START_HEALTH_FRACTION
@@ -91,9 +102,39 @@ func take_damage(amount: float) -> void:
 	health = maxf(health - amount, 0.0)
 	health_changed.emit(self)
 	if health <= 0.0:
-		remove_from_group(GROUP)
-		destroyed.emit(self)
-		queue_free()
+		_remove()
+
+
+## The Scrap and Energy a cancel would return right now.
+func cancel_refund() -> Dictionary:
+	var refund: Dictionary = {}
+	for resource in definition.cost():
+		var amount := floori(int(definition.cost()[resource]) * CANCEL_REFUND)
+		if amount > 0:
+			refund[resource] = amount
+	return refund
+
+
+## Removes an unfinished site and returns part of its cost. Returns false
+## (and does nothing) once the building is complete.
+func cancel_construction() -> bool:
+	if is_complete() or health <= 0.0:
+		return false
+	var refund := cancel_refund()
+	if economy != null:
+		for resource in refund:
+			economy.add(resource, refund[resource])
+	if refund.has(Economy.SCRAP):
+		FloatingText.spawn(get_parent(), global_position + Vector3.UP * LABEL_HEIGHT, "+%d Scrap" % refund[Economy.SCRAP], BuildingVisuals.REFUND)
+	health = 0.0
+	_remove()
+	return true
+
+
+func _remove() -> void:
+	remove_from_group(GROUP)
+	destroyed.emit(self)
+	queue_free()
 
 
 func _process(delta: float) -> void:

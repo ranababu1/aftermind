@@ -48,6 +48,8 @@ func _ready() -> void:
 	_hud.select_all_requested.connect(_selection.select_all)
 	_hud.clear_selection_requested.connect(_selection.clear)
 	_selection.selection_changed.connect(_hud.show_selection)
+	_selection.structure_selection_changed.connect(_hud.show_structure)
+	_hud.cancel_construction_requested.connect(_on_cancel_construction)
 	_add_player_drop_off(definition.player_start)
 	_camera.tapped.connect(_on_world_tapped)
 	_camera.long_pressed.connect(_on_world_long_pressed)
@@ -115,17 +117,20 @@ func _on_world_tapped(screen_position: Vector2) -> void:
 	if unit != null:
 		_selection.select_only(unit)
 		return
-	if not _selection.has_selection():
-		return
 	var deposit := _selection.pick_in_group(ResourceNode.GROUP, screen_position, 0.5, DEPOSIT_PICK_RADIUS_PX) as ResourceNode
-	if deposit != null:
+	if deposit != null and _selection.has_selection():
 		_commands.issue_gather(_selection.selected_units(), deposit)
 		return
+	# Workers build or repair the building they are sent to; any other tap on
+	# a building selects it.
 	var structure_hit := _camera.raycast(screen_position, 1 << (Structure.PICK_LAYER - 1))
 	if not structure_hit.is_empty():
 		var structure := Structure.from_collider(structure_hit.collider)
 		if not _commands.issue_build(_selection.selected_units(), structure):
-			_commands.reject(structure_hit.position)
+			_selection.select_structure(structure)
+		return
+	if not _selection.has_selection():
+		_selection.clear()
 		return
 	# A tap on a rock or structure must not resolve to the ground behind it.
 	var hit := _camera.raycast(screen_position, 1 << (MapBuilder.OBSTACLE_LAYER - 1))
@@ -135,6 +140,12 @@ func _on_world_tapped(screen_position: Vector2) -> void:
 	var ground: Variant = _camera.screen_to_ground(screen_position)
 	if ground != null:
 		_commands.issue_move(_selection.selected_units(), ground)
+
+
+func _on_cancel_construction() -> void:
+	var structure := _selection.selected_structure()
+	if structure != null:
+		structure.cancel_construction()
 
 
 func _on_world_long_pressed(screen_position: Vector2) -> void:

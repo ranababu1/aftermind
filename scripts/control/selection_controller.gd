@@ -1,9 +1,12 @@
 class_name SelectionController
 extends Node
-## Owns the player's current unit selection. Picking is done in screen space
+## Owns the player's current selection: a group of units or one structure,
+## never both. Picking is done in screen space
 ## with a generous radius so units are easy to hit with a finger.
 
 signal selection_changed(units: Array[Unit])
+## Emitted with null when the structure selection is cleared.
+signal structure_selection_changed(structure: Structure)
 
 ## Pick radius in viewport pixels at the 1920x1080 reference resolution.
 const PICK_RADIUS_PX := 72.0
@@ -14,6 +17,7 @@ const PICK_HEIGHT := 1.4
 
 var _camera: Camera3D
 var _selected: Array[Unit] = []
+var _structure: Structure
 
 
 func setup(camera: Camera3D) -> void:
@@ -26,6 +30,16 @@ func selected_units() -> Array[Unit]:
 
 func has_selection() -> bool:
 	return not _selected.is_empty()
+
+
+func selected_structure() -> Structure:
+	return _structure
+
+
+func select_structure(structure: Structure) -> void:
+	if not _selected.is_empty():
+		_set_selection([])
+	_set_structure(structure)
 
 
 ## Returns the closest owned unit under a screen position, or null.
@@ -94,9 +108,9 @@ func select_all() -> void:
 
 
 func clear() -> void:
-	if _selected.is_empty():
-		return
-	_set_selection([])
+	_set_structure(null)
+	if not _selected.is_empty():
+		_set_selection([])
 
 
 func _set_selection(units: Array) -> void:
@@ -111,7 +125,28 @@ func _set_selection(units: Array) -> void:
 			_selected.append(unit)
 			unit.selected = true
 			unit.tree_exiting.connect(_on_unit_removed.bind(unit), CONNECT_ONE_SHOT)
+	if not _selected.is_empty():
+		_set_structure(null)
 	selection_changed.emit(selected_units())
+
+
+func _set_structure(structure: Structure) -> void:
+	if structure == _structure:
+		return
+	if is_instance_valid(_structure):
+		_structure.selected = false
+		if _structure.tree_exiting.is_connected(_on_structure_removed):
+			_structure.tree_exiting.disconnect(_on_structure_removed)
+	_structure = structure if is_instance_valid(structure) else null
+	if _structure != null:
+		_structure.selected = true
+		_structure.tree_exiting.connect(_on_structure_removed, CONNECT_ONE_SHOT)
+	structure_selection_changed.emit(_structure)
+
+
+func _on_structure_removed() -> void:
+	_structure = null
+	structure_selection_changed.emit(null)
 
 
 func _on_unit_removed(unit: Unit) -> void:

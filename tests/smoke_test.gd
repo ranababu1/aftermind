@@ -38,6 +38,7 @@ func _run() -> void:
 	await _check_construction()
 	await _check_worker_construction()
 	await _check_energy_wells()
+	await _check_structure_selection()
 	if _failures.is_empty():
 		print("SMOKE TEST PASSED")
 		quit(0)
@@ -442,3 +443,44 @@ func _check_energy_wells() -> void:
 
 func _carved_gap(map: MapBuilder, point: Vector3) -> float:
 	return _flat(NavigationServer3D.map_get_closest_point(map.navigation_map(), point), point)
+
+
+func _check_structure_selection() -> void:
+	var skirmish: Node = await _spawn_skirmish()
+	var economy := skirmish.get_node("PlayerEconomy") as Economy
+	var service := skirmish.get_node("ConstructionService") as ConstructionService
+	var selection := skirmish.get_node("SelectionController") as SelectionController
+	var map := skirmish.get_node("Battlefield/Map") as MapBuilder
+	var reactor := load("res://data/buildings/power_reactor.tres") as BuildingDefinition
+	var spot: Variant = _find_open_spot(service, reactor, map.definition.player_start)
+	_expect(spot != null, "open spot for the selection check")
+	if spot == null:
+		skirmish.queue_free()
+		return
+	var before := economy.amount(Economy.SCRAP)
+	var site := service.place(reactor, spot, economy, &"remnants")
+	_expect(site != null, "site placed for the selection check")
+	if site == null:
+		skirmish.queue_free()
+		return
+	selection.select_all()
+	selection.select_structure(site)
+	_expect(selection.selected_structure() == site and site.selected, "a building can be selected")
+	_expect(not selection.has_selection(), "selecting a building clears the unit selection")
+	_expect(Hud.structure_status(site).begins_with("Building 0%"), "info shows construction progress")
+	selection.select_all()
+	_expect(selection.selected_structure() == null and not site.selected, "selecting units clears the building selection")
+	selection.select_structure(site)
+	var refund := floori(reactor.cost_scrap * Structure.CANCEL_REFUND)
+	_expect(site.cancel_construction(), "an unfinished site can be cancelled")
+	_expect(economy.amount(Economy.SCRAP) == before - reactor.cost_scrap + refund, "cancelling refunds 75% of the cost")
+	await process_frame
+	_expect(selection.selected_structure() == null, "a cancelled site leaves the selection")
+	var other: Variant = _find_open_spot(service, reactor, map.definition.player_start)
+	var built: Structure = service.place(reactor, other, economy, &"remnants") if other != null else null
+	while built != null and not built.add_build_work(1.0):
+		pass
+	_expect(built != null and not built.cancel_construction(), "a finished building cannot be cancelled")
+	_expect(built != null and Hud.structure_status(built).contains("Energy/min"), "info shows the reactor's output")
+	skirmish.queue_free()
+	await process_frame
