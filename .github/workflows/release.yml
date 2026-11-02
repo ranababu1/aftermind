@@ -1,0 +1,161 @@
+name: Release
+
+# Every push to main that builds and passes the smoke test publishes a GitHub
+# Release for internal device testing. The version comes from
+# application/config/version in project.godot and must be bumped on every
+# push: the job fails if release v<version> already exists.
+#
+# Attaches two release-signed APKs:
+#   aftermind-arm64-v8a-vX.Y.Z.apk   most modern phones (2018+)
+#   aftermind-universal-vX.Y.Z.apk   any device (all ABIs; largest)
+# Release notes are the "## vX.Y.Z — date — title" section of docs/changelog.md.
+#
+# Requires three repository secrets (Settings -> Secrets and variables ->
+# Actions); the job fails fast if any are missing:
+#   ANDROID_KEYSTORE_BASE64    base64 of the release keystore (.jks)
+#   ANDROID_KEYSTORE_PASSWORD  keystore and key password
+#   ANDROID_KEY_ALIAS          key alias
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to create the tag and GitHub Release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION="$(sed -nE 's/^config\/version="([0-9]+\.[0-9]+\.[0-9]+)"$/\1/p' project.godot)"
+          test -n "$VERSION" || { echo '::error::config/version missing from project.godot'; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
+      - name: Refuse to re-release an existing version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v${{ steps.version.outputs.version }}" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release v${{ steps.version.outputs.version }} already exists. Bump config/version in project.godot."
+            exit 1
+          fi
+
+      - name: Check signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          missing=0
+          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS; do
+            if [ -z "${!name}" ]; then echo "::error::Missing secret for $name"; missing=1; fi
+          done
+          exit $missing
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-stable
+
+      - name: Download Godot and export templates
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          mkdir -p ~/godot
+          curl -fsSL -o ~/godot/godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSL -o ~/godot/templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q ~/godot/godot.zip -d ~/godot
+          mv ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot/godot
+          rm ~/godot/godot.zip
+
+      - name: Install Godot export templates and editor settings
+        run: |
+          tpl=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$tpl"
+          unzip -qo ~/godot/templates.tpz -d /tmp/templates
+          cp -r /tmp/templates/templates/* "$tpl/"
+          mkdir -p ~/.config/godot
+          major_minor="${GODOT_VERSION%.*}"
+          cat > ~/.config/godot/editor_settings-${major_minor}.tres <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "${ANDROID_HOME}"
+          export/android/java_sdk_path = "${JAVA_HOME}"
+          EOF
+
+      - name: Materialize release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+
+      - name: Import, smoke test, and export APKs
+        env:
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ runner.temp }}/release.jks
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: ${{ secrets.ANDROID_KEY_ALIAS }}
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: GODOT="$HOME/godot/godot" bash tools/build_release.sh
+
+      - name: Extract release notes from changelog
+        id: notes
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          heading="$(grep -m1 -E "^## v${VERSION//./\\.} " docs/changelog.md || true)"
+          test -n "$heading" || { echo "::error::docs/changelog.md has no '## v${VERSION} — date — title' entry"; exit 1; }
+          title="${heading##*— }"
+          echo "title=v${VERSION} - ${title}" >> "$GITHUB_OUTPUT"
+          awk -v h="$heading" '$0 == h {on=1; next} on && /^## / {exit} on {print}' docs/changelog.md > release-notes.md
+          cat >> release-notes.md <<EOF
+
+          ### Which file should I download?
+
+          - \`aftermind-arm64-v8a-v${VERSION}.apk\` — most modern phones (2018+)
+          - \`aftermind-universal-v${VERSION}.apk\` — universal APK (any device; largest)
+
+          Internal test build. Not for distribution.
+          EOF
+          cat release-notes.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          gh release create "v${VERSION}" release-assets/*.apk \
+            --target "$GITHUB_SHA" \
+            --title "${{ steps.notes.outputs.title }}" \
+            --notes-file release-notes.md
+
+      - name: Label each APK asset with the devices it fits
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/v${{ steps.version.outputs.version }}" \
+            --jq '.assets[] | [.id, .name] | @tsv' |
+          while IFS=$'\t' read -r id name; do
+            case "$name" in
+              *arm64-v8a*) label='most modern phones (2018+)' ;;
+              *)           label='universal APK (any device)' ;;
+            esac
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/assets/${id}" -f label="$label" >/dev/null
+          done

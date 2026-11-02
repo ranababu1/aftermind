@@ -1,6 +1,6 @@
 # AFTERMIND — Current State
 
-_Last updated: 2026-11-02_
+_Last updated: 2026-11-02 — version 0.1.0_
 
 ## Milestone
 **M0: Project foundation — implemented, verified on an Android emulator only.**
@@ -15,7 +15,8 @@ M0 exit criteria still open: install/launch on a **physical** Android device, an
 - Source-of-truth docs live in `docs/` (`plan.md`, `instructions.md`, `changelog.md`, this file). Note: `instructions.md` says repository root; they were already in `docs/` and were left there.
 
 ## Project layout
-- `project.godot`, `export_presets.cfg` (Android preset; holds no credentials).
+- `project.godot` (`application/config/version` is the release version), `export_presets.cfg` (presets `Android arm64-v8a` and `Android Universal`; no credentials).
+- `.github/workflows/release.yml`: CI release on every push to `main`. `tools/build_release.sh`: shared build script.
 - `scenes/ui/main_menu.tscn`: title screen over a slowly orbiting live view of the battlefield.
 - `scenes/skirmish.tscn`: match root with battlefield, camera rig, HUD, pause menu.
 - `scenes/world/battlefield.tscn`: environment, sun, and `MapBuilder`.
@@ -48,8 +49,17 @@ M0 exit criteria still open: install/launch on a **physical** Android device, an
 - Run: `godot --path .`
 - Headless import (parse check): `godot --headless --path . --import`
 - Smoke test: `godot --headless --path . --script res://tests/smoke_test.gd` (prints `SMOKE TEST PASSED`, exit 0).
-- Android debug APK: `godot --headless --path . --export-debug "Android" build/aftermind-debug.apk` (`build/` is git-ignored).
-- Install: `adb install -r build/aftermind-debug.apk`, then launch package `com.aftermind.game`.
+- Android debug APK: `godot --headless --path . --export-debug "Android arm64-v8a" build/aftermind-debug.apk` (`build/` is git-ignored; use `"Android Universal"` for x86_64 emulators).
+- Release APKs (same as CI): set `GODOT`, `GODOT_ANDROID_KEYSTORE_RELEASE_PATH`, `GODOT_ANDROID_KEYSTORE_RELEASE_USER`, `GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD`, then run `bash tools/build_release.sh`. Output goes to `release-assets/` (git-ignored).
+- Install: `adb install -r <apk>`, then launch package `dev.imrn.aftermind`.
+
+## Release process (internal testing)
+- Every push to `main` triggers `.github/workflows/release.yml`. If import, smoke test, and both exports succeed, it publishes GitHub Release `v<config/version>` with `aftermind-arm64-v8a-vX.Y.Z.apk` and `aftermind-universal-vX.Y.Z.apk`.
+- **Bump `config/version` in `project.godot` and add a `## vX.Y.Z — date — title` entry to `docs/changelog.md` on every push.** CI fails on an already-released version or a missing changelog entry.
+- versionCode = `X*10000 + Y*100 + Z`, so installs upgrade in place.
+- Signing: dedicated release keystore kept outside the repo (on the dev machine at `%USERPROFILE%\.aftermind-signing\`). CI reads it from the repo secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`. Losing the keystore means testers must uninstall before the next update.
+- The repo is public, so release APKs are publicly downloadable. They are internal test builds, not store distribution.
+- Test devices: Motorola Edge Fusion 70, Samsung Galaxy S25 Ultra.
 - Use `godot_console` instead of `godot` on Windows to see output in the terminal.
 
 ## Smoke-test checklist (manual, on device)
@@ -70,11 +80,11 @@ M0 exit criteria still open: install/launch on a **physical** Android device, an
 ## Known issues and risks
 - Directional shadow edges show some stair-stepping at mid zoom; tune after testing on a physical device.
 - Auto-pause also triggers on window focus loss on desktop, which is intended but can surprise during desktop testing.
-- The package name `com.aftermind.game` is provisional (title not yet cleared for trademark).
+- Package name `dev.imrn.aftermind`. The title AFTERMIND is still provisional (trademark not yet checked).
 - Uses Godot's built-in default font (bundled with the engine). All 3D visuals are generated from engine primitives, so there are no third-party assets.
 
 ## Git
 - Branch `main`, remote `origin` = https://github.com/ranababu1/aftermind.git. Pushed after each buildable increment.
 
 ## Next recommended task
-Install the debug APK on a physical Android device, record it as the baseline device, and run the smoke-test checklist (including pinch zoom). Then start M1: add collision for map obstacles, bake a NavigationRegion3D, and add a first selectable unit with tap-to-select and tap-to-move.
+Install the v0.1.0 release APK on the Moto Edge Fusion 70 and the S25 Ultra, record the baseline device, and run the smoke-test checklist (including pinch zoom). Then start M1: add collision for map obstacles, bake a NavigationRegion3D, and add a first selectable unit with tap-to-select and tap-to-move.
