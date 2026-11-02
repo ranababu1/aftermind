@@ -40,6 +40,16 @@ static func selection_ring(radius: float) -> MeshInstance3D:
 	return node
 
 
+## Salvage bundle carried on a worker's back while delivering.
+static func cargo() -> Node3D:
+	var root := Node3D.new()
+	root.name = "Cargo"
+	root.scale = Vector3.ONE * MODEL_SCALE
+	root.add_child(_box(Vector3(0.5, 0.36, 0.4), Color(0.55, 0.32, 0.16), Vector3(0, 1.62, 0.45), 0.6, 0.4))
+	root.add_child(_box(Vector3(0.3, 0.2, 0.42), Color(0.5, 0.52, 0.55), Vector3(0.08, 1.88, 0.45), 0.5, 0.6))
+	return root
+
+
 static func _rifle() -> Node3D:
 	var root := Node3D.new()
 	root.name = "RifleModel"

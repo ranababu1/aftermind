@@ -48,6 +48,27 @@ func pick_unit(screen_position: Vector2) -> Unit:
 	return best
 
 
+## Closest node of `group` whose anchor (position + height) is within
+## `radius_px` of a screen position, or null.
+func pick_in_group(group: StringName, screen_position: Vector2, height: float, radius_px: float) -> Node3D:
+	if _camera == null:
+		return null
+	var best: Node3D = null
+	var best_distance := radius_px
+	for node in get_tree().get_nodes_in_group(group):
+		var spatial := node as Node3D
+		if spatial == null or not spatial.is_inside_tree():
+			continue
+		var anchor := spatial.global_position + Vector3.UP * height
+		if _camera.is_position_behind(anchor):
+			continue
+		var distance := _camera.unproject_position(anchor).distance_to(screen_position)
+		if distance < best_distance:
+			best_distance = distance
+			best = spatial
+	return best
+
+
 func select_only(unit: Unit) -> void:
 	if _selected.size() == 1 and _selected[0] == unit:
 		return

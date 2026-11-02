@@ -8,3 +8,6 @@ unit_id = &"worker"
 display_name = "Worker"
 move_speed = 5.0
 radius = 0.8
+can_gather = true
+carry_capacity = 10
+gather_seconds = 2.0

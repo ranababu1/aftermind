@@ -1,7 +1,9 @@
 class_name Unit
 extends Node3D
 ## A mobile unit. Executes move orders on the navigation mesh with local
-## avoidance, and gives up safely if it stops making progress.
+## avoidance, and gives up safely if it stops making progress. A unit can run
+## one job (such as gathering) that drives it; a direct player order cancels
+## the job.
 
 signal order_finished(unit: Unit)
 
@@ -15,6 +17,10 @@ const STUCK_MIN_PROGRESS := 0.4
 @export var definition: UnitDefinition
 @export var faction: StringName = &"remnants"
 
+## Stockpile that this unit's deliveries go to.
+var economy: Economy
+var job: Node = null
+
 var selected: bool = false:
 	set(value):
 		selected = value
@@ -23,6 +29,7 @@ var selected: bool = false:
 
 var _agent: NavigationAgent3D
 var _selection_ring: MeshInstance3D
+var _cargo: Node3D
 var _moving: bool = false
 var _stuck_timer: float = 0.0
 var _stuck_origin: Vector3 = Vector3.ZERO
@@ -44,10 +51,46 @@ func _ready() -> void:
 	_agent.neighbor_distance = 6.0
 	_agent.velocity_computed.connect(_on_velocity_computed)
 	add_child(_agent)
+	if definition.can_gather:
+		_cargo = UnitVisuals.cargo()
+		_cargo.visible = false
+		add_child(_cargo)
 
 
 func is_moving() -> bool:
 	return _moving
+
+
+## Player move order: cancels any running job first.
+func command_move(target: Vector3) -> void:
+	cancel_job()
+	move_to(target)
+
+
+func assign_job(new_job: Node) -> void:
+	cancel_job()
+	job = new_job
+	add_child(new_job)
+
+
+func cancel_job() -> void:
+	if job != null and is_instance_valid(job):
+		remove_child(job)
+		job.queue_free()
+	job = null
+	set_cargo(false)
+
+
+## While true the unit ignores other units in local avoidance, so busy
+## workers can thread through idle crowds (others still steer around it).
+func set_pass_through(enabled: bool) -> void:
+	if _agent != null:
+		_agent.avoidance_mask = 0 if enabled else 1
+
+
+func set_cargo(carrying: bool) -> void:
+	if _cargo != null:
+		_cargo.visible = carrying
 
 
 func move_to(target: Vector3) -> void:

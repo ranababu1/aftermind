@@ -52,7 +52,12 @@ func build() -> void:
 		var ruin := _place(MapProps.ruin(r.z, r.w, rng), Vector3(r.x, 0, r.y), _nav_region)
 		_add_box_blocker(ruin, Vector3(r.z * 1.6, r.w, r.z * 0.9), Vector3(-r.z * 0.3, 0, 0))
 	for site in definition.scrap_sites:
-		_place(MapProps.scrap_pile(rng), site, self)
+		var deposit := ResourceNode.new()
+		deposit.name = "Scrap"
+		deposit.resource = Economy.SCRAP
+		deposit.capacity = definition.scrap_per_site
+		deposit.set_visual(MapProps.scrap_pile(rng))
+		_place(deposit, site, self)
 	for site in definition.energy_sites:
 		_place(MapProps.energy_well(), site, self)
 	var core := _place(MapProps.ai_core(), definition.core_site, _nav_region)

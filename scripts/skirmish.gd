@@ -8,6 +8,9 @@ const START_FOCUS_OFFSET := Vector3(4.0, 0.0, -6.0)
 const SPAWN_DISTANCE := 11.0
 const SPAWN_SPACING := 2.2
 const NAV_SYNC_MAX_FRAMES := 600
+## Screen-space pick radius for resource deposits (they are wider than units).
+const DEPOSIT_PICK_RADIUS_PX := 96.0
+const NEXUS_DROP_OFF_RADIUS := 6.4
 
 @export var starting_units: Array[UnitDefinition] = []
 
@@ -34,6 +37,7 @@ func _ready() -> void:
 	_hud.select_all_requested.connect(_selection.select_all)
 	_hud.clear_selection_requested.connect(_selection.clear)
 	_selection.selection_changed.connect(_hud.show_selection)
+	_add_player_drop_off(definition.player_start)
 	_camera.tapped.connect(_on_world_tapped)
 	_camera.long_pressed.connect(_on_world_long_pressed)
 	# Spawn points are snapped to walkable ground, which needs the
@@ -65,7 +69,19 @@ func _spawn_starting_units() -> void:
 		unit.name = "%s%d" % [starting_units[i].display_name.to_pascal_case(), i]
 		unit.position = _commands.closest_walkable(rally + offsets[i])
 		unit.rotation.y = atan2(-toward_center.x, -toward_center.z)
+		unit.economy = _economy
 		_units.add_child(unit)
+
+
+## The Command Nexus is a placeholder model for now; this makes it accept
+## deliveries.
+func _add_player_drop_off(at: Vector3) -> void:
+	var drop := DropOff.new()
+	drop.name = "NexusDropOff"
+	drop.faction = &"remnants"
+	drop.radius = NEXUS_DROP_OFF_RADIUS
+	drop.position = at
+	add_child(drop)
 
 
 func _on_world_tapped(screen_position: Vector2) -> void:
@@ -74,6 +90,10 @@ func _on_world_tapped(screen_position: Vector2) -> void:
 		_selection.select_only(unit)
 		return
 	if not _selection.has_selection():
+		return
+	var deposit := _selection.pick_in_group(ResourceNode.GROUP, screen_position, 0.5, DEPOSIT_PICK_RADIUS_PX) as ResourceNode
+	if deposit != null:
+		_commands.issue_gather(_selection.selected_units(), deposit)
 		return
 	# A tap on a rock or structure must not resolve to the ground behind it.
 	var hit := _camera.raycast(screen_position, 1 << (MapBuilder.OBSTACLE_LAYER - 1))

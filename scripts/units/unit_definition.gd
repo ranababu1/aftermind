@@ -9,3 +9,9 @@ extends Resource
 @export var turn_speed: float = 12.0
 ## Footprint used for avoidance and the selection ring.
 @export var radius: float = 0.6
+
+@export_group("Gathering")
+@export var can_gather: bool = false
+## Resources carried per trip.
+@export var carry_capacity: int = 10
+@export var gather_seconds: float = 2.0

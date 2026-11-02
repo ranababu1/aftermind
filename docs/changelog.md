@@ -81,3 +81,24 @@
 - HUD layout checked in a desktop render.
 
 **Known limitations:** No income or costs are wired up yet.
+
+## v0.2.2 — 2026-11-03 — Workers gather Scrap
+**Summary:** Workers can now gather. Select Workers and tap a scrap pile (amber ring): they walk over, salvage, carry a crate back to the Command Nexus, and deliver it with a "+10" popup. Then they repeat on their own. Piles shrink as they're drained and vanish when empty, and Workers move on to the nearest other pile. Rifle units sent to a pile wait beside it.
+
+**Added:**
+- `ResourceNode`: harvestable deposits (600 Scrap per site, set in map data) that shrink as drained and remove themselves when empty.
+- `DropOff`: delivery point (the Command Nexus for now).
+- `GatherJob`: the worker loop. It picks the next pile the moment one runs dry, fans workers out around a pile or drop-off so they don't queue for one spot, retries from a new angle when blocked, and gives up after 3 failed trips with a red "Can't reach" or "No scrap nearby" message.
+- Units can run one job; any direct move order cancels it (and drops the cargo).
+- Unit data: `can_gather`, `carry_capacity` (10), `gather_seconds` (2.0).
+- Visuals: cargo crate on a delivering worker's back, amber pulse when ordering a gather, floating "+10" income text.
+
+**Tests/checks:**
+- New gathering scenarios pass: workers deliver to the economy; the deposit drains; a drained deposit removes itself and the worker retargets; a move order cancels the job; a gather order with only Rifle units is refused.
+- An intermittent first-delivery failure was traced to workers crowding one stand point; fixed by fanning out. 8 of 8 repeat runs passed afterwards.
+- Emulator testing found that with **All Units** selected, Rifle units piled onto the scrap and boxed the Workers in (no deliveries after 20 s). Fixed two ways: units that can't gather now wait at a staging point 11 m beside the pile, and Workers on a gather job pass through other units, a common RTS convention, so traffic can't stall the economy. The test now sends the whole army and checks that escorts stay out of the harvesting ring.
+- Release build on the Pixel 10 Pro AVD: All Units, tap a scrap pile; Workers harvest and deliver (Scrap 300 → 330 with "+10" popups) while Rifle units wait beside the pile.
+
+**Known limitations:**
+- Energy has no source yet (Power Reactor comes with construction).
+- No Salvage Depot drop-off yet.

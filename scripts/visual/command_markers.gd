@@ -4,15 +4,24 @@ extends RefCounted
 
 const MOVE_COLOR := Color(0.35, 0.95, 1.0)
 const INVALID_COLOR := Color(1.0, 0.3, 0.25)
+const GATHER_COLOR := Color(1.0, 0.7, 0.25)
 const LIFETIME := 0.6
 
 
 static func move_marker(pos: Vector3) -> Node3D:
+	return _pulse(pos, MOVE_COLOR, 1.0)
+
+
+static func gather_marker(pos: Vector3) -> Node3D:
+	return _pulse(pos, GATHER_COLOR, 3.0)
+
+
+static func _pulse(pos: Vector3, color: Color, radius: float) -> Node3D:
 	var root := Node3D.new()
 	root.position = pos
-	var ring := _ring(1.0, MOVE_COLOR)
+	var ring := _ring(radius, color)
 	root.add_child(ring)
-	var dot := _ring(0.25, MOVE_COLOR)
+	var dot := _ring(0.25, color)
 	root.add_child(dot)
 	root.ready.connect(func() -> void:
 		var tween := root.create_tween().set_parallel()

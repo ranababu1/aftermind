@@ -9,6 +9,8 @@ extends Resource
 @export var player_start: Vector3 = Vector3.ZERO
 @export var enemy_start: Vector3 = Vector3.ZERO
 @export var scrap_sites: Array[Vector3] = []
+## Scrap available at each scrap site before it is depleted.
+@export var scrap_per_site: int = 600
 @export var energy_sites: Array[Vector3] = []
 @export var core_site: Vector3 = Vector3.ZERO
 ## Rock formations: x, z, radius, height.

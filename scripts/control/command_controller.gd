@@ -8,6 +8,8 @@ signal move_rejected(point: Vector3)
 const MAX_SNAP_DISTANCE := 2.5
 const FORMATION_SPACING := 2.2
 const GOLDEN_ANGLE := 2.39996323
+## Non-gatherers sent to a deposit wait this far from it.
+const STAGING_DISTANCE := 11.0
 
 var _map: MapBuilder
 
@@ -37,7 +39,7 @@ func issue_move(units: Array[Unit], point: Vector3) -> bool:
 	var map_rid := _map.navigation_map()
 	for i in live.size():
 		var destination := NavigationServer3D.map_get_closest_point(map_rid, center + offsets[i])
-		live[i].move_to(destination)
+		live[i].command_move(destination)
 	add_child(CommandMarkers.move_marker(center))
 	return true
 
@@ -51,6 +53,42 @@ func reject(point: Vector3) -> void:
 ## Closest walkable point to `point`, however far away it is.
 func closest_walkable(point: Vector3) -> Vector3:
 	return NavigationServer3D.map_get_closest_point(_map.navigation_map(), point)
+
+
+## Sends gatherers in `units` to work `node`; other units move next to it.
+func issue_gather(units: Array[Unit], node: ResourceNode) -> bool:
+	if node == null or not is_instance_valid(node) or node.is_depleted():
+		return false
+	var gatherers: Array[Unit] = []
+	var others: Array[Unit] = []
+	for unit in units:
+		if not is_instance_valid(unit):
+			continue
+		if unit.definition.can_gather:
+			gatherers.append(unit)
+		else:
+			others.append(unit)
+	for unit in gatherers:
+		unit.assign_job(GatherJob.new(node))
+	if not others.is_empty():
+		issue_move(others, _staging_point(others, node.global_position))
+	if not gatherers.is_empty():
+		add_child(CommandMarkers.gather_marker(node.global_position))
+	return not gatherers.is_empty()
+
+
+## A spot beside `site` on the side the group comes from, so escorts do not
+## crowd the workers' harvesting ring.
+func _staging_point(units: Array[Unit], site: Vector3) -> Vector3:
+	var centroid := Vector3.ZERO
+	for unit in units:
+		centroid += unit.global_position
+	centroid /= units.size()
+	var away := centroid - site
+	away.y = 0.0
+	if away.length_squared() < 0.01:
+		away = Vector3.BACK
+	return site + away.normalized() * STAGING_DISTANCE
 
 
 ## Closest walkable point to `point`, or null if it is too far away.

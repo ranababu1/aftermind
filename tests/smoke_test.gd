@@ -11,6 +11,8 @@ const SCENES := [
 const FRAMES_PER_SCENE := 30
 const EXPECTED_STARTING_UNITS := 8
 const SPAWN_FRAME_BUDGET := 240
+## Frames allowed for a first delivery (60 fps -> 40 s).
+const GATHER_FRAME_BUDGET := 2400
 ## Frames allowed for a group to cross the map (60 fps -> 30 s).
 const MOVE_FRAME_BUDGET := 1800
 ## Slack beyond the formation radius for avoidance jostling at arrival.
@@ -30,6 +32,7 @@ func _run() -> void:
 		await _check_scene(path)
 	await _check_pause_cycle()
 	await _check_movement_and_selection()
+	await _check_gathering()
 	if _failures.is_empty():
 		print("SMOKE TEST PASSED")
 		quit(0)
@@ -165,3 +168,79 @@ func _check_economy() -> void:
 	economy.add(Economy.ENERGY, 5)
 	_expect(economy.amount(Economy.ENERGY) == 25, "income adds")
 	economy.queue_free()
+
+
+func _spawn_skirmish() -> Node:
+	var skirmish: Node = (load("res://scenes/skirmish.tscn") as PackedScene).instantiate()
+	root.add_child(skirmish)
+	var units_root := skirmish.get_node("Units")
+	var waited := 0
+	while units_root.get_child_count() < EXPECTED_STARTING_UNITS and waited < SPAWN_FRAME_BUDGET:
+		await physics_frame
+		waited += 1
+	return skirmish
+
+
+func _nearest_deposit(from: Vector3, exclude: Node = null) -> ResourceNode:
+	var best: ResourceNode = null
+	for node in get_nodes_in_group(ResourceNode.GROUP):
+		if node == exclude:
+			continue
+		if best == null or node.global_position.distance_to(from) < best.global_position.distance_to(from):
+			best = node
+	return best
+
+
+func _check_gathering() -> void:
+	var skirmish: Node = await _spawn_skirmish()
+	var economy := skirmish.get_node("PlayerEconomy") as Economy
+	var commands := skirmish.get_node("CommandController") as CommandController
+	var map := skirmish.get_node("Battlefield/Map") as MapBuilder
+	var workers: Array[Unit] = []
+	var riflemen: Array[Unit] = []
+	for node in skirmish.get_node("Units").get_children():
+		var unit := node as Unit
+		(workers if unit.definition.can_gather else riflemen).append(unit)
+	_expect(workers.size() == 3, "three workers available")
+	_expect(not commands.issue_gather(riflemen, _nearest_deposit(map.definition.player_start)), "gather with no workers is refused")
+
+	# Full loop: harvest, carry, deliver.
+	var start_scrap := economy.amount(Economy.SCRAP)
+	var deposit := _nearest_deposit(map.definition.player_start)
+	# Send the whole army, as a player tapping "All Units" would: escorts must
+	# not box the workers in.
+	var everyone: Array[Unit] = []
+	everyone.append_array(workers)
+	everyone.append_array(riflemen)
+	_expect(commands.issue_gather(everyone, deposit), "gather order accepted")
+	var frames := 0
+	while economy.amount(Economy.SCRAP) <= start_scrap and frames < GATHER_FRAME_BUDGET:
+		await physics_frame
+		frames += 1
+	_expect(economy.amount(Economy.SCRAP) > start_scrap, "workers deliver scrap to the economy (%d frames)" % frames)
+	if economy.amount(Economy.SCRAP) <= start_scrap:
+		for worker in workers:
+			var gather := worker.job as GatherJob
+			print("  diag %s pos=%s moving=%s job=%s state=%s carrying=%s" % [worker.name, worker.global_position, worker.is_moving(), gather != null, gather.state if gather else -1, gather.carrying if gather else 0])
+	_expect(deposit.remaining < deposit.capacity, "gathering drains the deposit")
+	for rifle in riflemen:
+		_expect(rifle.global_position.distance_to(deposit.global_position) > ResourceNode.HARVEST_REACH, "%s waits outside the harvesting ring" % rifle.name)
+
+	# Depletion: the worker moves on to another deposit.
+	var lone := workers[0]
+	var tiny := _nearest_deposit(lone.global_position, deposit)
+	tiny.remaining = lone.definition.carry_capacity
+	lone.assign_job(GatherJob.new(tiny))
+	frames = 0
+	while is_instance_valid(tiny) and frames < GATHER_FRAME_BUDGET:
+		await physics_frame
+		frames += 1
+	_expect(not is_instance_valid(tiny), "a drained deposit removes itself")
+	var job := lone.job as GatherJob
+	_expect(job != null and job.target != null and is_instance_valid(job.target), "worker retargets after its deposit is depleted")
+
+	# A direct order cancels the job and drops the cargo.
+	lone.command_move(map.definition.player_start + Vector3(10, 0, -10))
+	_expect(lone.job == null, "move order cancels the gather job")
+	skirmish.queue_free()
+	await process_frame
