@@ -182,7 +182,13 @@
 3. Workers construct and repair those buildings.
 4. Power Reactors generate Energy, double when built beside an Energy Well.
 
-This release has no new gameplay over v0.2.5; it closes the milestone and refreshes the project documentation.
+This release closes the milestone and refreshes the project documentation.
+
+**Release note:** v0.2.4 and v0.2.5 were never published. Their CI runs failed two tests that were too strict for the slower CI machine:
+- a navmesh re-bake check that counted frames instead of real time;
+- a repair-cost limit that didn't allow for each Worker pre-paying one Scrap.
+
+The game code was fine. Both tests are fixed (background waits are now budgeted in real seconds; the repair limit allows one spare Scrap per Worker), so **v0.3.0 is the first release that contains the build menu, construction and Energy Wells.**
 
 **Changed:** `docs/currentstate.md` is fully refreshed for M2:
 - project layout and implemented features;

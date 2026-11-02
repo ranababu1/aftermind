@@ -10,7 +10,9 @@ const SCENES := [
 ]
 const FRAMES_PER_SCENE := 30
 const EXPECTED_STARTING_UNITS := 8
-const SPAWN_FRAME_BUDGET := 240
+## Background work (navigation sync and re-bakes) runs in real time, which
+## --fixed-fps frames outpace, so those waits are budgeted in seconds.
+const BACKGROUND_WAIT_SECONDS := 20.0
 ## Frames allowed for a first delivery (60 fps -> 40 s).
 const GATHER_FRAME_BUDGET := 2400
 ## Frames allowed for a group to cross the map (60 fps -> 30 s).
@@ -97,10 +99,9 @@ func _check_movement_and_selection() -> void:
 	# Units spawn once the navigation map has synced, which takes a variable
 	# number of frames (region updates are asynchronous).
 	var units_root := skirmish.get_node("Units")
-	var waited := 0
-	while units_root.get_child_count() < EXPECTED_STARTING_UNITS and waited < SPAWN_FRAME_BUDGET:
+	var deadline := Time.get_ticks_msec() + int(BACKGROUND_WAIT_SECONDS * 1000.0)
+	while units_root.get_child_count() < EXPECTED_STARTING_UNITS and Time.get_ticks_msec() < deadline:
 		await physics_frame
-		waited += 1
 	var map := skirmish.get_node("Battlefield/Map") as MapBuilder
 	var selection := skirmish.get_node("SelectionController") as SelectionController
 	var commands := skirmish.get_node("CommandController") as CommandController
@@ -177,10 +178,9 @@ func _spawn_skirmish() -> Node:
 	var skirmish: Node = (load("res://scenes/skirmish.tscn") as PackedScene).instantiate()
 	root.add_child(skirmish)
 	var units_root := skirmish.get_node("Units")
-	var waited := 0
-	while units_root.get_child_count() < EXPECTED_STARTING_UNITS and waited < SPAWN_FRAME_BUDGET:
+	var deadline := Time.get_ticks_msec() + int(BACKGROUND_WAIT_SECONDS * 1000.0)
+	while units_root.get_child_count() < EXPECTED_STARTING_UNITS and Time.get_ticks_msec() < deadline:
 		await physics_frame
-		waited += 1
 	return skirmish
 
 
@@ -298,11 +298,10 @@ func _check_construction() -> void:
 	_expect(not site.is_complete() and site.health > 0.0, "a new site starts incomplete with some health")
 
 	# The footprint is carved out of navigation once the async re-bake lands.
-	var frames := 0
-	while _flat(NavigationServer3D.map_get_closest_point(map.navigation_map(), site.global_position), site.global_position) < reactor.footprint_radius and frames < SPAWN_FRAME_BUDGET:
+	var deadline := Time.get_ticks_msec() + int(BACKGROUND_WAIT_SECONDS * 1000.0)
+	while _carved_gap(map, site.global_position) < reactor.footprint_radius and Time.get_ticks_msec() < deadline:
 		await physics_frame
-		frames += 1
-	_expect(frames < SPAWN_FRAME_BUDGET, "new building is carved out of the navigation mesh")
+	_expect(_carved_gap(map, site.global_position) >= reactor.footprint_radius, "new building is carved out of the navigation mesh")
 
 	var finished := false
 	for i in 1000:
@@ -392,7 +391,9 @@ func _check_worker_construction() -> void:
 		frames += 1
 	_expect(not site.is_damaged(), "workers repair to full health")
 	var spent := scrap_before - economy.amount(Economy.SCRAP)
-	_expect(spent > 0 and spent <= int(reactor.cost_scrap * BuildJob.REPAIR_COST_FACTOR * 0.5) + 2, "repair costs a fair amount of scrap (%d)" % spent)
+	# Each worker pre-pays one Scrap at a time, so allow one spare per worker.
+	var fair := ceili(reactor.cost_scrap * BuildJob.REPAIR_COST_FACTOR * 0.5) + workers.size()
+	_expect(spent > 0 and spent <= fair, "repair costs a fair amount of scrap (%d)" % spent)
 
 	# Repair stops cleanly when scrap runs out.
 	site.take_damage(reactor.max_health * 0.5)
@@ -437,3 +438,7 @@ func _check_energy_wells() -> void:
 	_expect(bonus_site != null and is_equal_approx(bonus_site.energy_rate, reactor.energy_per_minute * reactor.energy_well_multiplier), "finished reactor beside a well produces double")
 	skirmish.queue_free()
 	await process_frame
+
+
+func _carved_gap(map: MapBuilder, point: Vector3) -> float:
+	return _flat(NavigationServer3D.map_get_closest_point(map.navigation_map(), point), point)
